@@ -123,8 +123,8 @@ router.get('/pdf', async (req, res) => {
       y += 2;
       doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
       doc.text('Item', c0, y);
-      doc.text('Price', c1, y, { width: c2 - c1, align: 'center' });
-      doc.text('QTY', c2, y, { width: c3 - c2, align: 'center' });
+      doc.text('Price', c1, y, { width: c2 - c1 - 2 });
+      doc.text('QTY', c2, y, { width: c3 - c2 - 2, align: 'right' });
       doc.text('Amount', c3, y, { width: c4 - c3, align: 'right' });
       y += 8;
       doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
@@ -134,9 +134,9 @@ router.get('/pdf', async (req, res) => {
       let itemTotal = 0, totalQty = 0;
       items.forEach(item => {
         y += 5;
-        doc.text(item.product_name, c0, y, { width: c1 - c0 - 4 });
-        doc.text('₦' + Number(item.unit_price).toLocaleString(), c1, y, { width: c2 - c1, align: 'center' });
-        doc.text(String(item.quantity), c2, y, { width: c3 - c2, align: 'center' });
+        doc.text(item.product_name, c0, y, { width: c1 - c0 - 2 });
+        doc.text('₦' + Number(item.unit_price).toLocaleString(), c1, y, { width: c2 - c1 - 2 });
+        doc.text(String(item.quantity), c2, y, { width: c3 - c2 - 2, align: 'right' });
         doc.text('₦' + Number(item.subtotal).toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
         itemTotal += Number(item.subtotal);
         totalQty += item.quantity;
@@ -148,8 +148,8 @@ router.get('/pdf', async (req, res) => {
       doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
       y += 4;
       doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
-      doc.text('Total:', c1, y, { width: c3 - c1, align: 'right' });
-      doc.text(String(totalQty), c2, y, { width: c3 - c2, align: 'center' });
+      doc.text('Total:', c1, y, { width: c2 - c1 - 2 });
+      doc.text(String(totalQty), c2, y, { width: c3 - c2 - 2, align: 'right' });
       doc.text('₦' + itemTotal.toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
 
       // Footer (body)
