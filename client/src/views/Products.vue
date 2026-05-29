@@ -30,11 +30,11 @@
       <el-form label-position="top">
         <el-row :gutter="12">
           <el-col :span="8"><el-form-item label="Sort Order"><el-input-number v-model="form.sort_order" :min="0" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="Code"><el-input v-model="form.code" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="Code" required><el-input v-model="form.code" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="Status"><el-select v-model="form.status"><el-option label="Active" value="active" /><el-option label="Inactive" value="inactive" /></el-select></el-form-item></el-col>
         </el-row>
-        <el-form-item label="Name"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="Price"><el-input-number v-model="form.price" :min="0" :step="500" style="width:100%" /></el-form-item>
+        <el-form-item label="Name" required><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="Price" required><el-input-number v-model="form.price" :min="0" :step="500" style="width:100%" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">Cancel</el-button>
@@ -70,9 +70,12 @@ function openCreate() { editing.value = null; form.value = { sort_order: product
 function openEdit(p) { editing.value = p; form.value = { sort_order: p.sort_order, code: p.code, name: p.name, price: p.price, status: p.status }; showDialog.value = true }
 
 async function handleSave() {
+  if (!form.value.code || !form.value.name || !form.value.price) { ElMessage.warning('All fields required'); return }
   const p = { ...form.value, price: parseFloat(form.value.price) }
-  if (editing.value) { await api.put(`/products/${editing.value.id}`, p) } else { await api.post('/products', p) }
-  ElMessage.success('Saved'); showDialog.value = false; loadProducts()
+  try {
+    if (editing.value) { await api.put(`/products/${editing.value.id}`, p) } else { await api.post('/products', p) }
+    ElMessage.success('Saved'); showDialog.value = false; loadProducts()
+  } catch (err) { ElMessage.error(err.response?.data?.message || 'Failed') }
 }
 
 async function handleDelete(id) { await api.delete(`/products/${id}`); loadProducts() }
