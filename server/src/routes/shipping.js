@@ -67,6 +67,7 @@ router.post('/:id/action', async (req, res) => {
     const validActions = {
       pending: ['confirm_ship', 'deliver', 'return', 'reassign'],
       in_transit: ['deliver', 'return', 'reassign'],
+      delivered: ['return'],
     };
 
     if (!validActions[rec.status] || !validActions[rec.status].includes(action)) {

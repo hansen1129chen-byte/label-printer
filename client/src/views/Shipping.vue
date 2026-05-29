@@ -10,11 +10,20 @@
     </el-tabs>
 
     <el-table :data="list" stripe v-loading="loading">
+      <el-table-column width="40">
+        <template #default="{row}"><el-checkbox v-model="row.checked" /></template>
+      </el-table-column>
       <el-table-column prop="order_no" label="Order No." width="130" />
       <el-table-column prop="customer_name" label="Customer" min-width="140" />
       <el-table-column prop="customer_phone" label="Phone" width="130" />
       <el-table-column prop="customer_address" label="Address" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="delivery_method" label="Method" width="70"><template #default="{row}">{{ row.delivery_method?.toUpperCase() }}</template></el-table-column>
+      <el-table-column label="Method" width="80">
+        <template #default="{row}">
+          <el-tag v-if="row.delivery_method === 'gig'" type="primary" size="small">GIG</el-tag>
+          <el-tag v-else-if="row.delivery_method === 'own'" type="success" size="small">OWN</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="Tracking / Staff" width="150">
         <template #default="{row}">
           <span v-if="row.delivery_method === 'gig'">{{ row.gig_tracking || '-' }}</span>
@@ -23,7 +32,7 @@
         </template>
       </el-table-column>
       <el-table-column prop="initiated_at" label="Created" width="110"><template #default="{row}">{{ row.initiated_at?.slice(0,10) }}</template></el-table-column>
-      <el-table-column label="Actions" width="220" fixed="right">
+      <el-table-column label="Actions" width="250" fixed="right">
         <template #default="{row}">
           <template v-if="activeTab === 'pending'">
             <el-button size="small" type="primary" @click="openShipDialog(row)">Ship</el-button>
@@ -33,7 +42,10 @@
             <el-button size="small" type="warning" @click="doAction(row.id, 'return')">Return</el-button>
             <el-button size="small" @click="doAction(row.id, 'reassign')">Reassign</el-button>
           </template>
-          <el-checkbox v-model="row.checked" />
+          <template v-if="activeTab === 'delivered'">
+            <el-button size="small" type="warning" @click="doAction(row.id, 'return')">Return</el-button>
+          </template>
+          <el-button link type="primary" size="small" @click="viewRecord(row)">View</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -55,6 +67,22 @@
         <el-button type="primary" :disabled="!shipForm.delivery_method" @click="confirmShip">Confirm</el-button>
       </template>
     </el-dialog>
+
+    <!-- View Dialog -->
+    <el-dialog v-model="showView" title="Shipping Record" width="500px">
+      <template v-if="viewData">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="Shipping Code">{{ viewData.shipping_code }}</el-descriptions-item>
+          <el-descriptions-item label="Status">{{ viewData.status }}</el-descriptions-item>
+          <el-descriptions-item label="Order No.">{{ viewData.order_no }}</el-descriptions-item>
+          <el-descriptions-item label="Method">{{ viewData.delivery_method?.toUpperCase() }}</el-descriptions-item>
+          <el-descriptions-item label="GIG Tracking">{{ viewData.gig_tracking || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="Delivery Staff">{{ viewData.delivery_staff_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="Initiated At">{{ fmtDate(viewData.initiated_at) }}</el-descriptions-item>
+          <el-descriptions-item label="Last Updated">{{ fmtDate(viewData.updated_at) }}</el-descriptions-item>
+        </el-descriptions>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -71,6 +99,10 @@ const shipForm = ref({ delivery_method: '', gig_tracking: '', delivery_staff_id:
 const shipTargetId = ref(null)
 const deliveryStaff = ref([])
 const selectAll = ref(false)
+const showView = ref(false)
+const viewData = ref(null)
+
+function fmtDate(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-GB') + ' ' + t.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
 
 async function loadList() {
   loading.value = true
@@ -102,6 +134,8 @@ async function doAction(id, action) {
     ElMessage.success('Updated'); loadList()
   } catch (err) { ElMessage.error(err.response?.data?.message || 'Failed') }
 }
+
+function viewRecord(row) { viewData.value = row; showView.value = true }
 
 function toggleAll(v) { list.value.forEach(r => r.checked = v) }
 
