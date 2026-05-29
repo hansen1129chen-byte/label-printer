@@ -2,7 +2,10 @@
   <div class="page-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h2>Orders</h2>
-      <el-button type="primary" @click="$router.push('/orders/new')">+ New Order</el-button>
+      <div style="display:flex;gap:10px">
+        <el-button type="primary" @click="$router.push('/orders/new')">+ New Order</el-button>
+        <el-button :disabled="refreshCooldown > 0" :loading="refreshing" @click="doRefresh">{{ refreshCooldown > 0 ? 'Wait ' + refreshCooldown + 's' : 'Refresh' }}</el-button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -43,7 +46,12 @@
       <el-table-column prop="actual_amount" label="Actual" width="100">
         <template #default="{row}">{{ '₦' + Number(row.actual_amount).toLocaleString() }}</template>
       </el-table-column>
-      <el-table-column prop="created_at" label="Date" width="120">
+      <el-table-column label="Shipping" width="110">
+        <template #default="{row}">
+          <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="created_at" label="Date" width="110">
         <template #default="{row}">{{ row.created_at?.slice(0,10) }}</template>
       </el-table-column>
       <el-table-column label="Actions" width="140" fixed="right">
@@ -74,6 +82,7 @@
           <el-descriptions-item label="Payment">{{ currentOrder.payment_status_name }}</el-descriptions-item>
           <el-descriptions-item label="Total">₦{{ Number(currentOrder.total_amount).toLocaleString() }}</el-descriptions-item>
           <el-descriptions-item label="Actual">₦{{ Number(currentOrder.actual_amount).toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="Shipping"><el-tag :type="shipTag(currentOrder.shipping_status)" size="small">{{ shipLabel(currentOrder.shipping_status) }}</el-tag></el-descriptions-item>
         </el-descriptions>
         <h4 style="margin:12px 0 8px">Items</h4>
         <el-table :data="currentOrder.items" size="small">
@@ -119,6 +128,27 @@ async function loadOrders() {
 
 async function viewDetail(row) {
   const { data } = await api.get(`/orders/${row.id}`); currentOrder.value = data; showDetail.value = true
+}
+
+function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }
+function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger' }[s] || 'info' }
+
+// Refresh with 60s throttle
+const refreshing = ref(false)
+const refreshCooldown = ref(0)
+const lastRefreshKey = 'lp_last_refresh'
+function doRefresh() {
+  const now = Date.now()
+  const last = parseInt(localStorage.getItem(lastRefreshKey) || '0')
+  const elapsed = Math.floor((now - last) / 1000)
+  if (elapsed < 60) {
+    refreshCooldown.value = 60 - elapsed
+    const timer = setInterval(() => { refreshCooldown.value--; if (refreshCooldown.value <= 0) clearInterval(timer) }, 1000)
+    return
+  }
+  refreshing.value = true
+  localStorage.setItem(lastRefreshKey, String(now))
+  loadOrders().then(() => { refreshing.value = false })
 }
 
 async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }

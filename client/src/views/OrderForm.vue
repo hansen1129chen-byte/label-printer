@@ -4,19 +4,19 @@
 
     <el-form :model="form" label-position="top" ref="formRef">
       <el-row :gutter="16">
-        <el-col :span="8"><el-form-item label="Customer Name"><el-input v-model="form.customer_name" /></el-form-item></el-col>
-        <el-col :span="4"><el-form-item label="Gender"><el-select v-model="form.customer_gender"><el-option label="Male" value="male" /><el-option label="Female" value="female" /></el-select></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Phone"><el-input v-model="form.customer_phone" /></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Streamer"><el-select v-model="form.streamer_id" placeholder="Select"><el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Customer Name" required><el-input v-model="form.customer_name" /></el-form-item></el-col>
+        <el-col :span="4"><el-form-item label="Gender" required><el-select v-model="form.customer_gender"><el-option label="Male" value="male" /><el-option label="Female" value="female" /></el-select></el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" /></el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="Streamer" required><el-select v-model="form.streamer_id" placeholder="Select"><el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item></el-col>
       </el-row>
       <el-row :gutter="16">
-        <el-col :span="12"><el-form-item label="Address"><el-input v-model="form.customer_address" type="textarea" :rows="2" /></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Payment Status"><el-select v-model="form.payment_status_id" placeholder="Select"><el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" /></el-select></el-form-item></el-col>
+        <el-col :span="12"><el-form-item label="Address" required><el-input v-model="form.customer_address" type="textarea" :rows="2" /></el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="Payment Status" required><el-select v-model="form.payment_status_id" placeholder="Select"><el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" /></el-select></el-form-item></el-col>
       </el-row>
 
-      <h4 style="margin:12px 0">Products</h4>
+      <h4 style="margin:12px 0">Products <span style="color:#f56c6c">*</span></h4>
       <el-table :data="items" border size="small">
-        <el-table-column label="Product" min-width="200">
+        <el-table-column label="Product" min-width="170">
           <template #default="{row, $index}">
             <el-select v-model="row.product_id" placeholder="Select product" filterable @change="onProductChange($index)" style="width:100%">
               <el-option v-for="p in availableProducts($index)" :key="p.id" :label="`${p.code} - ${p.name} (₦${Number(p.price).toLocaleString()})`" :value="p.id" />
@@ -26,15 +26,15 @@
         <el-table-column label="Price" width="120">
           <template #default="{row}">{{ row.unit_price ? '₦' + Number(row.unit_price).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column label="Qty" width="80">
+        <el-table-column label="Qty" width="140">
           <template #default="{row}"><el-input-number v-model="row.quantity" :min="1" :max="999" size="small" @change="calcTotal" /></template>
         </el-table-column>
         <el-table-column label="Subtotal" width="130">
           <template #default="{row}">{{ row.subtotal ? '₦' + Number(row.subtotal).toLocaleString() : '-' }}</template>
         </el-table-column>
-        <el-table-column width="50">
+        <el-table-column label="Actions" width="70">
           <template #default="{$index}">
-            <el-button v-if="items.length > 1" link type="danger" @click="removeItem($index)">X</el-button>
+            <el-button link type="danger" :disabled="items.length <= 1" @click="removeItem($index)">Del</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -93,6 +93,10 @@ function addItem() { items.value.push({ product_id: null, unit_price: 0, quantit
 function removeItem(idx) { items.value.splice(idx, 1) }
 
 async function handleSave() {
+  const f = form.value
+  if (!f.customer_name || !f.customer_gender || !f.customer_phone || !f.customer_address || !f.streamer_id || !f.payment_status_id) {
+    ElMessage.warning('All fields are required'); return
+  }
   if (items.value.some(i => !i.product_id)) { ElMessage.warning('Select products'); return }
   saving.value = true
   const payload = {

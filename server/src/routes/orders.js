@@ -26,7 +26,10 @@ router.get('/', async (req, res) => {
     const total = countRows[0].total;
 
     const [rows] = await pool.query(
-      `SELECT o.* FROM orders o WHERE ${where} ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
+      `SELECT o.*, sr.status AS shipping_status, sr.shipping_code
+       FROM orders o
+       LEFT JOIN shipping_records sr ON sr.order_id = o.id
+       WHERE ${where} ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
     );
     res.json({ list: rows, total, page: parseInt(page) });
