@@ -10,7 +10,7 @@ const routes = [
   { path: '/shipping', name: 'Shipping', component: () => import('../views/Shipping.vue') },
   { path: '/products', name: 'Products', component: () => import('../views/Products.vue') },
   { path: '/config', name: 'Config', component: () => import('../views/Config.vue'), meta: { admin: true } },
-  { path: '/stats', name: 'Stats', component: () => import('../views/Stats.vue') },
+  { path: '/stats', name: 'Stats', component: () => import('../views/Stats.vue'), meta: { admin: true } },
   { path: '/accounts', name: 'Accounts', component: () => import('../views/Accounts.vue'), meta: { admin: true } },
   { path: '/profile', name: 'Profile', component: () => import('../views/Profile.vue') },
   { path: '/:pathMatch(.*)*', redirect: '/' },
