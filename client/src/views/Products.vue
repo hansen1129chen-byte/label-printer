@@ -1,0 +1,73 @@
+<template>
+  <div class="page-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2>Products</h2>
+      <el-button v-if="isAdmin" type="primary" @click="openCreate">+ New Product</el-button>
+    </div>
+
+    <el-table :data="products" stripe v-loading="loading">
+      <el-table-column prop="sort_order" label="#" width="50" />
+      <el-table-column prop="code" label="Code" width="120" />
+      <el-table-column prop="name" label="Name" min-width="180" />
+      <el-table-column label="Price" width="120"><template #default="{row}">₦{{ Number(row.price).toLocaleString() }}</template></el-table-column>
+      <el-table-column label="Status" width="100"><template #default="{row}"><el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? 'Active' : 'Inactive' }}</el-tag></template></el-table-column>
+      <el-table-column v-if="isAdmin" label="Actions" width="180" fixed="right">
+        <template #default="{row, $index}">
+          <el-button link type="primary" size="small" :disabled="$index === 0" @click="moveUp(row)">↑</el-button>
+          <el-button link type="primary" size="small" :disabled="$index === products.length - 1" @click="moveDown(row)">↓</el-button>
+          <el-button link type="primary" size="small" @click="openEdit(row)">Edit</el-button>
+          <el-popconfirm title="Delete?" @confirm="handleDelete(row.id)"><template #reference><el-button link type="danger" size="small">Del</el-button></template></el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- Create/Edit Dialog -->
+    <el-dialog v-model="showDialog" :title="editing ? 'Edit Product' : 'New Product'" width="500px">
+      <el-form label-position="top">
+        <el-row :gutter="12">
+          <el-col :span="8"><el-form-item label="Sort Order"><el-input-number v-model="form.sort_order" :min="0" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="Code"><el-input v-model="form.code" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="Status"><el-select v-model="form.status"><el-option label="Active" value="active" /><el-option label="Inactive" value="inactive" /></el-select></el-form-item></el-col>
+        </el-row>
+        <el-form-item label="Name"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="Price"><el-input-number v-model="form.price" :min="0" :step="500" style="width:100%" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="handleSave">Save</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import api from '../api'
+import { getUser } from '../utils/auth'
+
+const isAdmin = ref(getUser()?.role === 'admin')
+const loading = ref(false)
+const products = ref([])
+const showDialog = ref(false)
+const editing = ref(null)
+const form = ref({ sort_order: 0, code: '', name: '', price: 0, status: 'active' })
+
+async function loadProducts() { loading.value = true; const { data } = await api.get('/products'); products.value = data; loading.value = false }
+
+function openCreate() { editing.value = null; form.value = { sort_order: products.value.length + 1, code: '', name: '', price: 0, status: 'active' }; showDialog.value = true }
+function openEdit(p) { editing.value = p; form.value = { sort_order: p.sort_order, code: p.code, name: p.name, price: p.price, status: p.status }; showDialog.value = true }
+
+async function handleSave() {
+  const p = { ...form.value, price: parseFloat(form.value.price) }
+  if (editing.value) { await api.put(`/products/${editing.value.id}`, p) } else { await api.post('/products', p) }
+  ElMessage.success('Saved'); showDialog.value = false; loadProducts()
+}
+
+async function handleDelete(id) { await api.delete(`/products/${id}`); loadProducts() }
+
+async function moveUp(row) { await api.put(`/products/${row.id}`, { ...row, sort_order: row.sort_order - 1 }); loadProducts() }
+async function moveDown(row) { await api.put(`/products/${row.id}`, { ...row, sort_order: row.sort_order + 1 }); loadProducts() }
+
+onMounted(loadProducts)
+</script>

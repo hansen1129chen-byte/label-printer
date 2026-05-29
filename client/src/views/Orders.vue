@@ -1,0 +1,127 @@
+<template>
+  <div class="page-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2>Orders</h2>
+      <el-button type="primary" @click="$router.push('/orders/new')">+ New Order</el-button>
+    </div>
+
+    <!-- Filters -->
+    <el-form :inline="true" style="margin-bottom:12px">
+      <el-form-item label="Date">
+        <el-date-picker v-model="filters.dates" type="daterange" range-separator="-" start-placeholder="From" end-placeholder="To" value-format="YYYY-MM-DD" size="small" />
+      </el-form-item>
+      <el-form-item label="Streamer">
+        <el-select v-model="filters.streamer_id" placeholder="All" clearable size="small" style="width:130px">
+          <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Payment">
+        <el-select v-model="filters.payment_status_id" placeholder="All" clearable size="small" style="width:130px">
+          <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" size="small" @click="loadOrders">Search</el-button>
+      </el-form-item>
+    </el-form>
+
+    <!-- Table -->
+    <el-table :data="orders" stripe v-loading="loading" style="width:100%">
+      <el-table-column prop="order_no" label="Order No." width="130" />
+      <el-table-column prop="customer_name" label="Customer" min-width="140" />
+      <el-table-column prop="customer_phone" label="Phone" width="130" />
+      <el-table-column prop="customer_address" label="Address" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="streamer_name" label="Streamer" width="100" />
+      <el-table-column label="Payment" width="100">
+        <template #default="{row}">
+          <el-tag :type="row.payment_status_name === 'PAID' ? 'success' : 'danger'" size="small">{{ row.payment_status_name }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="total_amount" label="Total" width="100">
+        <template #default="{row}">{{ '₦' + Number(row.total_amount).toLocaleString() }}</template>
+      </el-table-column>
+      <el-table-column prop="actual_amount" label="Actual" width="100">
+        <template #default="{row}">{{ '₦' + Number(row.actual_amount).toLocaleString() }}</template>
+      </el-table-column>
+      <el-table-column prop="created_at" label="Date" width="120">
+        <template #default="{row}">{{ row.created_at?.slice(0,10) }}</template>
+      </el-table-column>
+      <el-table-column label="Actions" width="140" fixed="right">
+        <template #default="{row}">
+          <el-button link type="primary" size="small" @click="$router.push(`/orders/${row.id}/edit`)">Edit</el-button>
+          <el-button link type="primary" size="small" @click="viewDetail(row)">View</el-button>
+          <el-popconfirm v-if="isAdmin" title="Delete?" @confirm="handleDelete(row.id)">
+            <template #reference><el-button link type="danger" size="small">Del</el-button></template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <div style="margin-top:12px;text-align:right">
+      <el-pagination v-model:current-page="page" :page-size="20" :total="total" layout="total, prev, pager, next" @current-change="loadOrders" />
+    </div>
+
+    <!-- Detail Dialog -->
+    <el-dialog v-model="showDetail" title="Order Detail" width="600px">
+      <template v-if="currentOrder">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="Order No.">{{ currentOrder.order_no }}</el-descriptions-item>
+          <el-descriptions-item label="Customer">{{ currentOrder.customer_name }}</el-descriptions-item>
+          <el-descriptions-item label="Phone">{{ currentOrder.customer_phone }}</el-descriptions-item>
+          <el-descriptions-item label="Gender">{{ currentOrder.customer_gender }}</el-descriptions-item>
+          <el-descriptions-item label="Address" :span="2">{{ currentOrder.customer_address }}</el-descriptions-item>
+          <el-descriptions-item label="Streamer">{{ currentOrder.streamer_name }}</el-descriptions-item>
+          <el-descriptions-item label="Payment">{{ currentOrder.payment_status_name }}</el-descriptions-item>
+          <el-descriptions-item label="Total">₦{{ Number(currentOrder.total_amount).toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="Actual">₦{{ Number(currentOrder.actual_amount).toLocaleString() }}</el-descriptions-item>
+        </el-descriptions>
+        <h4 style="margin:12px 0 8px">Items</h4>
+        <el-table :data="currentOrder.items" size="small">
+          <el-table-column prop="product_code" label="Code" width="120" />
+          <el-table-column prop="product_name" label="Product" />
+          <el-table-column prop="unit_price" label="Price" width="100"><template #default="{row}">₦{{ Number(row.unit_price).toLocaleString() }}</template></el-table-column>
+          <el-table-column prop="quantity" label="Qty" width="60" />
+          <el-table-column prop="subtotal" label="Subtotal" width="110"><template #default="{row}">₦{{ Number(row.subtotal).toLocaleString() }}</template></el-table-column>
+        </el-table>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import api from '../api'
+import { getUser } from '../utils/auth'
+
+const loading = ref(false)
+const orders = ref([])
+const streamers = ref([])
+const payStatuses = ref([])
+const total = ref(0)
+const page = ref(1)
+const isAdmin = ref(getUser()?.role === 'admin')
+const filters = ref({ dates: null, streamer_id: null, payment_status_id: null })
+const showDetail = ref(false)
+const currentOrder = ref(null)
+
+async function loadStreamers() { const { data } = await api.get('/config/streamers'); streamers.value = data }
+async function loadPayStatuses() { const { data } = await api.get('/config/payment_statuses'); payStatuses.value = data }
+
+async function loadOrders() {
+  loading.value = true
+  const params = { page: page.value, page_size: 20 }
+  if (filters.value.dates) { params.date_from = filters.value.dates[0]; params.date_to = filters.value.dates[1] }
+  if (filters.value.streamer_id) params.streamer_id = filters.value.streamer_id
+  if (filters.value.payment_status_id) params.payment_status_id = filters.value.payment_status_id
+  const { data } = await api.get('/orders', { params })
+  orders.value = data.list; total.value = data.total; loading.value = false
+}
+
+async function viewDetail(row) {
+  const { data } = await api.get(`/orders/${row.id}`); currentOrder.value = data; showDetail.value = true
+}
+
+async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
+
+onMounted(() => { loadStreamers(); loadPayStatuses(); loadOrders() })
+</script>
