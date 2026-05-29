@@ -109,9 +109,9 @@ router.get('/pdf', async (req, res) => {
 
       const totalFr = 4.0;
       const c0 = M;
-      const c1 = M + (1.8 / totalFr) * IW;  // Item wider
-      const c2 = c1 + (0.7 / totalFr) * IW; // Price narrower → left
-      const c3 = c2 + (0.5 / totalFr) * IW; // QTY narrower
+      const c1 = M + (2.5 / totalFr) * IW;  // Item column end
+      const c2 = c1 + 1;                    // Price immediately after Item
+      const c3 = c2 + (0.6 / totalFr) * IW; // QTY
       const c4 = W - M;                     // Amount stays
 
       // Table header (bold)
