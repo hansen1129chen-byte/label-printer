@@ -113,7 +113,7 @@ router.get('/pdf', async (req, res) => {
       const c1 = M + 60;
       const c2 = c1 + 1;
       const c3 = c2 + 16;
-      const c4 = W - M;
+      const c4 = W - M - 3;
 
       // Table header (bold)
       y += 3;
@@ -149,6 +149,12 @@ router.get('/pdf', async (req, res) => {
       doc.text('Total:', c1, y);
       doc.text(String(totalQty), c3, y, { width: c3 - c2 - 2, align: 'right' });
       doc.text('₦' + itemTotal.toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
+
+      // Customer contact
+      y += 8;
+      doc.font(FONT_BODY).fontSize(FS_BODY).fillColor('#111');
+      if (order.customer_phone) { doc.text('Phone No: ' + order.customer_phone, M, y); y += LH + 1; }
+      if (order.customer_address) { doc.text('Address: ' + order.customer_address, M, y, { width: IW }); y += LH + 1; }
 
       // Footer (body)
       y = doc.y + 10;
