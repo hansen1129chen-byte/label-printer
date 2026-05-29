@@ -4,10 +4,25 @@ const { authMiddleware, adminOnly } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
+// POST reorder - admin fixes all sort_orders
+router.post('/reorder', adminOnly, async (req, res) => {
+  try {
+    const { order } = req.body;
+    for (let i = 0; i < order.length; i++) {
+      await pool.query('UPDATE products SET sort_order=? WHERE id=?', [i+1, order[i]]);
+    }
+    res.json({ message: 'Reordered' });
+  } catch (err) { res.status(500).json({ message: 'Server error' }); }
+});
+
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY sort_order, id');
-    res.json(rows);
+    const { page = 1, page_size = 100 } = req.query;
+    const [countRows] = await pool.query('SELECT COUNT(*) AS total FROM products');
+    const ps = Math.min(parseInt(page_size), 100);
+    const offset = (parseInt(page) - 1) * ps;
+    const [rows] = await pool.query('SELECT * FROM products ORDER BY sort_order, id LIMIT ? OFFSET ?', [ps, offset]);
+    res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { res.status(500).json({ message: 'Server error' }); }
 });
 

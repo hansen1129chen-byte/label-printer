@@ -13,13 +13,17 @@
       <el-table-column label="Status" width="100"><template #default="{row}"><el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? 'Active' : 'Inactive' }}</el-tag></template></el-table-column>
       <el-table-column v-if="isAdmin" label="Actions" width="180" fixed="right">
         <template #default="{row, $index}">
-          <el-button link type="primary" size="small" :disabled="$index === 0" @click="moveUp(row)">↑</el-button>
-          <el-button link type="primary" size="small" :disabled="$index === products.length - 1" @click="moveDown(row)">↓</el-button>
+          <el-button link type="primary" size="small" :disabled="$index === 0" @click="moveUp($index)">↑</el-button>
+          <el-button link type="primary" size="small" :disabled="$index === products.length - 1" @click="moveDown($index)">↓</el-button>
           <el-button link type="primary" size="small" @click="openEdit(row)">Edit</el-button>
           <el-popconfirm title="Delete?" @confirm="handleDelete(row.id)"><template #reference><el-button link type="danger" size="small">Del</el-button></template></el-popconfirm>
         </template>
       </el-table-column>
     </el-table>
+
+    <div style="margin-top:12px;text-align:right">
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[20,50,100]" :total="total" layout="total, sizes, prev, pager, next" @size-change="loadProducts" @current-change="loadProducts" />
+    </div>
 
     <!-- Create/Edit Dialog -->
     <el-dialog v-model="showDialog" :title="editing ? 'Edit Product' : 'New Product'" width="500px">
@@ -49,11 +53,18 @@ import { getUser } from '../utils/auth'
 const isAdmin = ref(getUser()?.role === 'admin')
 const loading = ref(false)
 const products = ref([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(50)
 const showDialog = ref(false)
 const editing = ref(null)
 const form = ref({ sort_order: 0, code: '', name: '', price: 0, status: 'active' })
 
-async function loadProducts() { loading.value = true; const { data } = await api.get('/products'); products.value = data; loading.value = false }
+async function loadProducts() {
+  loading.value = true
+  const { data } = await api.get('/products', { params: { page: page.value, page_size: pageSize.value } })
+  products.value = data.list; total.value = data.total; loading.value = false
+}
 
 function openCreate() { editing.value = null; form.value = { sort_order: products.value.length + 1, code: '', name: '', price: 0, status: 'active' }; showDialog.value = true }
 function openEdit(p) { editing.value = p; form.value = { sort_order: p.sort_order, code: p.code, name: p.name, price: p.price, status: p.status }; showDialog.value = true }
@@ -66,8 +77,19 @@ async function handleSave() {
 
 async function handleDelete(id) { await api.delete(`/products/${id}`); loadProducts() }
 
-async function moveUp(row) { await api.put(`/products/${row.id}`, { ...row, sort_order: row.sort_order - 1 }); loadProducts() }
-async function moveDown(row) { await api.put(`/products/${row.id}`, { ...row, sort_order: row.sort_order + 1 }); loadProducts() }
+function moveUp(idx) {
+  const arr = products.value.slice()
+  ;[arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]
+  const order = arr.map(p => p.id)
+  api.post('/products/reorder', { order }).then(loadProducts)
+}
+
+function moveDown(idx) {
+  const arr = products.value.slice()
+  ;[arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]
+  const order = arr.map(p => p.id)
+  api.post('/products/reorder', { order }).then(loadProducts)
+}
 
 onMounted(loadProducts)
 </script>
