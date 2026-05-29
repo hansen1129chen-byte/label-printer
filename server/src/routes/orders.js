@@ -77,7 +77,9 @@ router.get('/pdf', async (req, res) => {
       const items = itemsByOrder[order.id] || [];
 
       // Background white
-      doc.rect(0, 0, W, H).fill('#fff').stroke('transparent');
+      doc.save();
+      doc.rect(0, 0, W, H).fill('#fff');
+      doc.restore();
 
       let y = M;
 
@@ -108,10 +110,10 @@ router.get('/pdf', async (req, res) => {
       doc.moveTo(M, y).lineTo(W - M, y).lineWidth(1).lineWidth(0.8).stroke('#000');
 
       const c0 = M;
-      const c1 = M + 55;                    // Item end
-      const c2 = c1 + 24;                   // Price (24pt col, right-aligned)
-      const c3 = c2 + 24;                   // QTY (24pt col, right-aligned)
-      const c4 = W - M;                     // Amount
+      const c1 = M + 60;
+      const c2 = c1 + 1;
+      const c3 = c2 + 16;
+      const c4 = W - M;
 
       // Table header (bold)
       y += 3;
