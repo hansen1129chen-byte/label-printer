@@ -65,7 +65,7 @@ router.get('/export', async (req, res) => {
       const first = r.order_no !== lastOrder;
       lastOrder = r.order_no;
       const o = first ? [r.order_no,r.customer_name,r.customer_phone,r.customer_address,r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,String(r.created_at||'').slice(0,10)] : ['','','','','','','','',''];
-      csv += [...o,r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal].map(v=>'"'+(v||'').replace(/"/g,'""')+'"').join(',')+'\n';
+      csv += [...o,r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')+'\n';
     }
     res.setHeader('Content-Type','text/csv; charset=utf-8');
     res.setHeader('Content-Disposition','attachment; filename=orders_export.csv');
