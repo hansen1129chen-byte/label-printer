@@ -1,9 +1,10 @@
 <template>
-  <div class="page-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h2>Products</h2>
+  <div>
+    <div class="page-header">
+      <div><h2>Products</h2><p>Manage product catalog, pricing and availability.</p></div>
       <el-button v-if="isAdmin" type="primary" @click="openCreate">+ New Product</el-button>
     </div>
+    <div class="page-card">
 
     <div style="margin-bottom:12px">
       <el-input v-model="search" placeholder="Search by code or name..." clearable style="width:300px" @keyup.enter="loadProducts">
@@ -48,6 +49,7 @@
         <el-button type="primary" @click="handleSave">Save</el-button>
       </template>
     </el-dialog>
+  </div>
   </div>
 </template>
 

@@ -1,9 +1,10 @@
 <template>
-  <div class="page-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h2>Accounts</h2>
+  <div>
+    <div class="page-header">
+      <div><h2>Accounts</h2><p>Manage system users and permissions.</p></div>
       <el-button type="primary" @click="openCreate">+ New Account</el-button>
     </div>
+    <div class="page-card">
 
     <el-table :data="accounts" stripe v-loading="loading">
       <el-table-column prop="username" label="Username" />
@@ -29,6 +30,7 @@
         <el-button type="primary" @click="handleSave">Save</el-button>
       </template>
     </el-dialog>
+  </div>
   </div>
 </template>
 

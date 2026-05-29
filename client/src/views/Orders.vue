@@ -1,13 +1,17 @@
 <template>
-  <div class="page-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h2>Orders</h2>
-      <div style="display:flex;gap:10px">
-        <el-button type="primary" @click="$router.push('/orders/new')">+ New Order</el-button>
+  <div>
+    <div class="page-header">
+      <div>
+        <h2>Orders</h2>
+        <p>Manage all customer orders, payments and fulfillment status.</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <el-button @click="doRefresh" :loading="refreshing" :disabled="refreshCooldown > 0">{{ refreshCooldown > 0 ? 'Wait '+refreshCooldown+'s' : 'Refresh' }}</el-button>
         <el-button @click="exportCSV" :disabled="!selectedRows.length">Export Excel</el-button>
-        <el-button :disabled="refreshCooldown > 0" :loading="refreshing" @click="doRefresh">{{ refreshCooldown > 0 ? 'Wait ' + refreshCooldown + 's' : 'Refresh' }}</el-button>
+        <el-button type="primary" @click="$router.push('/orders/new')">+ New Order</el-button>
       </div>
     </div>
+    <div class="page-card">
 
     <!-- Filters -->
     <el-form :inline="true" style="margin-bottom:12px">
@@ -104,6 +108,7 @@
         </el-table>
       </template>
     </el-dialog>
+  </div>
   </div>
 </template>
 

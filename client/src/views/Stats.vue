@@ -1,6 +1,7 @@
 <template>
-  <div class="page-card">
-    <h2 style="margin-bottom:16px">Statistics</h2>
+  <div>
+    <div class="page-header"><div><h2>Statistics</h2><p>Sales overview, streamer commissions and product performance.</p></div></div>
+    <div class="page-card">
 
     <el-form :inline="true" style="margin-bottom:16px">
       <el-form-item label="Period"><el-date-picker v-model="filters.dates" type="daterange" range-separator="-" start-placeholder="From" end-placeholder="To" value-format="YYYY-MM-DD" /></el-form-item>
@@ -40,6 +41,7 @@
         </el-table>
       </el-tab-pane>
     </el-tabs>
+  </div>
   </div>
 </template>
 

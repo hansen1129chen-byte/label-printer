@@ -1,7 +1,9 @@
 <template>
-  <div class="page-card">
-    <h2 style="margin-bottom:16px">Shipping Management</h2>
-
+  <div>
+    <div class="page-header">
+      <div><h2>Shipping</h2><p>Track all deliveries and manage fulfillment status.</p></div>
+    </div>
+    <div class="page-card">
     <div style="display:flex;gap:10px;margin-bottom:12px">
       <el-input v-model="searchOrderNo" placeholder="Search order no..." clearable style="width:200px" @keyup.enter="loadList" />
       <el-input v-model="searchCustomer" placeholder="Search name / phone..." clearable style="width:220px" @keyup.enter="loadList" />
@@ -122,6 +124,7 @@
         </el-table>
       </template>
     </el-dialog>
+  </div>
   </div>
 </template>
 

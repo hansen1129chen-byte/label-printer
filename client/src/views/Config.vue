@@ -1,6 +1,7 @@
 <template>
-  <div class="page-card">
-    <h2 style="margin-bottom:16px">Configuration</h2>
+  <div>
+    <div class="page-header"><div><h2>Configuration</h2><p>Manage streamers, payment statuses and delivery staff.</p></div></div>
+    <div class="page-card">
 
     <el-tabs>
       <!-- Streamers -->
@@ -52,6 +53,7 @@
         <el-button type="primary" @click="handleSave">Save</el-button>
       </template>
     </el-dialog>
+  </div>
   </div>
 </template>
 
