@@ -96,6 +96,8 @@ CREATE TABLE shipping_records (
     delivery_staff_id BIGINT NULL,
     delivery_staff_name VARCHAR(100) DEFAULT '',
     status ENUM('pending','in_transit','delivered','returned') DEFAULT 'pending',
+    shipped_at DATETIME NULL,
+    returned_at DATETIME NULL,
     initiated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,

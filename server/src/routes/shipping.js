@@ -19,7 +19,8 @@ router.get('/', async (req, res) => {
     if (date_to) { where += ' AND sr.initiated_at <= ?'; params.push(date_to + ' 23:59:59'); }
 
     const [rows] = await pool.query(
-      `SELECT sr.*, o.order_no, o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
+      `SELECT sr.*, o.order_no, o.created_at AS order_created_at,
+        o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
         ds.name AS delivery_staff_name, o.streamer_id
        FROM shipping_records sr
        JOIN orders o ON sr.order_id = o.id
@@ -75,9 +76,9 @@ router.post('/:id/action', async (req, res) => {
     }
 
     let newStatus;
+    let setExtra = '';
     if (action === 'confirm_ship') {
-      newStatus = 'in_transit';
-      // Update delivery method + details
+      newStatus = 'in_transit'; setExtra = ', shipped_at = NOW()';
       if (delivery_method) {
         let dsName = '';
         if (delivery_method === 'own' && delivery_staff_id) {
@@ -89,7 +90,7 @@ router.post('/:id/action', async (req, res) => {
       }
     }
     else if (action === 'deliver') newStatus = 'delivered';
-    else if (action === 'return') newStatus = 'returned';
+    else if (action === 'return') { newStatus = 'returned'; setExtra = ', returned_at = NOW()'; }
     else if (action === 'reassign') {
       newStatus = 'pending';
       if (delivery_method) {
@@ -98,7 +99,7 @@ router.post('/:id/action', async (req, res) => {
       }
     }
 
-    await pool.query('UPDATE shipping_records SET status = ?, updated_at = NOW() WHERE id = ?', [newStatus, rec.id]);
+    await pool.query(`UPDATE shipping_records SET status = ?, updated_at = NOW() ${setExtra} WHERE id = ?`, [newStatus, rec.id]);
     res.json({ message: 'Status updated', status: newStatus });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });

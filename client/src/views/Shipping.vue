@@ -31,7 +31,8 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="initiated_at" label="Created" width="110"><template #default="{row}">{{ row.initiated_at?.slice(0,10) }}</template></el-table-column>
+      <el-table-column label="Order Date" width="110"><template #default="{row}">{{ row.order_created_at?.slice(0,10) }}</template></el-table-column>
+      <el-table-column label="Shipped" width="110"><template #default="{row}">{{ row.shipped_at?.slice(0,10) || '-' }}</template></el-table-column>
       <el-table-column label="Actions" width="250" fixed="right">
         <template #default="{row}">
           <template v-if="activeTab === 'pending'">
@@ -78,7 +79,7 @@
           <el-descriptions-item label="Method">{{ viewData.delivery_method?.toUpperCase() }}</el-descriptions-item>
           <el-descriptions-item label="GIG Tracking">{{ viewData.gig_tracking || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Delivery Staff">{{ viewData.delivery_staff_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Initiated At">{{ fmtDate(viewData.initiated_at) }}</el-descriptions-item>
+          <el-descriptions-item label="Shipped At">{{ viewData.shipped_at ? fmtDate(viewData.shipped_at) : '-' }}</el-descriptions-item>
           <el-descriptions-item label="Last Updated">{{ fmtDate(viewData.updated_at) }}</el-descriptions-item>
         </el-descriptions>
       </template>
