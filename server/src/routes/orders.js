@@ -97,20 +97,11 @@ router.get('/pdf', async (req, res) => {
       const FS_BODY = 4;
       const LH = 5; // line height
 
-      // Invoice no (right) + Name phone (left) on same line
-      y += 4;
-      doc.font('Helvetica-Bold').fontSize(FS_BODY).fillColor('#111');
-      const nameLine = (order.customer_name ? order.customer_name.toUpperCase() : '') +
-        (order.customer_name && order.customer_phone ? '    ' + order.customer_phone : (order.customer_phone || ''));
-      if (nameLine) doc.text(nameLine, M, y, { width: IW - 60, continued: false });
-      doc.text('INVOICE No. ' + order.order_no, M, y, { width: IW, align: 'right' });
-      y += LH + 2;
-
-      // Address
-      doc.font(FONT_BODY).fontSize(FS_BODY);
-      if (order.customer_address) {
-        doc.text(order.customer_address, M, y, { width: IW }); y += LH + 1;
-      } else { y += 2; }
+      // Name (left) + Order no (right), tight to above line
+      doc.font(FONT_BODY).fontSize(FS_BODY).fillColor('#111');
+      if (order.customer_name) doc.text(order.customer_name.toUpperCase(), M, y, { width: IW - 60 });
+      doc.text(order.order_no, M, y, { width: IW, align: 'right' });
+      y += LH + 1;
 
       // Table
       y += 1;
@@ -127,8 +118,8 @@ router.get('/pdf', async (req, res) => {
       y += 2;
       doc.font('Helvetica-Bold').fontSize(FS_BODY).fillColor('#111');
       doc.text('Item', c0, y);
-      doc.text('Price', c1, y, { width: c2 - c1 - 2 });
-      doc.text('QTY', c2, y, { width: c3 - c2 - 2, align: 'right' });
+      doc.text('      Price', c1, y);
+      doc.text('   QTY', c2, y);
       doc.text('Amount', c3, y, { width: c4 - c3, align: 'right' });
       y += 8;
       doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.8).stroke('#000');
