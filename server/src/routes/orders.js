@@ -108,10 +108,10 @@ router.get('/pdf', async (req, res) => {
       doc.moveTo(M, y).lineTo(W - M, y).lineWidth(1).lineWidth(0.8).stroke('#000');
 
       const c0 = M;
-      const c1 = M + 60;                    // Item end
-      const c2 = c1 + 1;                    // Price tight (200空格 left effect)
-      const c3 = c2 + 16;                   // QTY moved right ~15pt (150空格 right)
-      const c4 = W - M;                     // Amount right edge
+      const c1 = M + 55;                    // Item end
+      const c2 = c1 + 24;                   // Price (24pt col, right-aligned)
+      const c3 = c2 + 24;                   // QTY (24pt col, right-aligned)
+      const c4 = W - M;                     // Amount
 
       // Table header (bold)
       y += 3;
