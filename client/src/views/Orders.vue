@@ -34,7 +34,7 @@
         </el-select>
       </el-form-item>
       <el-form-item>
-        <el-button size="small" @click="loadOrders">Search</el-button>
+        <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
       </el-form-item>
     </el-form>
 

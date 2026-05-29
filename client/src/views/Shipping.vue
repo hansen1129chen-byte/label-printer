@@ -7,7 +7,7 @@
     <div style="display:flex;gap:10px;margin-bottom:12px">
       <el-input v-model="searchOrderNo" placeholder="Search order no..." clearable style="width:200px" @keyup.enter="loadList" />
       <el-input v-model="searchCustomer" placeholder="Search name / phone..." clearable style="width:220px" @keyup.enter="loadList" />
-      <el-button size="small" @click="loadList">Search</el-button>
+      <el-button size="small" class="btn-search" @click="loadList">Search</el-button>
     </div>
 
     <el-tabs v-model="activeTab" @tab-change="loadList">

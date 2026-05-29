@@ -83,6 +83,8 @@ input:focus, select:focus, textarea:focus { border-color:#9ca3af; box-shadow:0 0
 /* ── Primary Button Override (Dark) ── */
 .btn-dark { background:#1a1a1a !important; border-color:#1a1a1a !important; color:#fff !important; }
 .btn-dark:hover { background:#333 !important; border-color:#333 !important; }
+.btn-search { background:#fff !important; border:1.5px solid #333 !important; color:#333 !important; font-weight:600 !important; }
+.btn-search:hover { background:#f5f5f5 !important; }
 
 /* ── Page Header ── */
 .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }

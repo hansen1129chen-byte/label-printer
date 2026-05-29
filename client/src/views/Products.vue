@@ -10,7 +10,7 @@
       <el-input v-model="search" placeholder="Search by code or name..." clearable style="width:300px" @keyup.enter="loadProducts">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
-      <el-button size="small" style="margin-left:8px" @click="loadProducts">Search</el-button>
+      <el-button size="small" class="btn-search" style="margin-left:8px" @click="loadProducts">Search</el-button>
     </div>
 
     <el-table :data="products" stripe v-loading="loading">
