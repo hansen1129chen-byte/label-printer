@@ -13,9 +13,9 @@
       <el-button size="small" class="btn-search" style="margin-left:8px" @click="loadProducts">Search</el-button>
     </div>
 
-    <el-table :data="products" stripe v-loading="loading">
+    <el-table :data="products" stripe v-loading="loading" @sort-change="onSortChange">
       <el-table-column prop="sort_order" label="#" width="50" />
-      <el-table-column prop="code" label="Code" width="120" />
+      <el-table-column prop="code" label="Code" width="120" sortable="custom" />
       <el-table-column prop="name" label="Name" min-width="180" />
       <el-table-column label="Price" width="120"><template #default="{row}">₦{{ Number(row.price).toLocaleString() }}</template></el-table-column>
       <el-table-column label="Status" width="100"><template #default="{row}"><el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? 'Active' : 'Inactive' }}</el-tag></template></el-table-column>
@@ -65,7 +65,15 @@ const products = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
+const sortBy = ref('')
+const sortDir = ref('')
 const search = ref('')
+
+function onSortChange({ prop, order }) {
+  sortBy.value = prop || ''
+  sortDir.value = order === 'ascending' ? 'asc' : order === 'descending' ? 'desc' : ''
+  loadProducts()
+}
 const showDialog = ref(false)
 const editing = ref(null)
 const form = ref({ sort_order: 0, code: '', name: '', price: 0, status: 'active' })
@@ -74,6 +82,7 @@ async function loadProducts() {
   loading.value = true
   const params = { page: page.value, page_size: pageSize.value }
   if (search.value) params.search = search.value
+  if (sortBy.value) { params.sort_by = sortBy.value; params.sort_dir = sortDir.value }
   const { data } = await api.get('/products', { params })
   products.value = data.list; total.value = data.total; loading.value = false
 }
