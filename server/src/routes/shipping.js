@@ -8,7 +8,13 @@ function genShippingCode() {
   return 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
 }
 
-// GET /api/shipping — list by status
+// Log an action
+async function logAction(shippingId, action, detail, operator) {
+  await pool.query('INSERT INTO shipping_logs (shipping_id, action, detail, operator) VALUES (?,?,?,?)',
+    [shippingId, action, detail, operator || '']);
+}
+
+// GET /api/shipping
 router.get('/', async (req, res) => {
   try {
     const { status, date_from, date_to, page = 1, page_size = 20 } = req.query;
@@ -33,50 +39,68 @@ router.get('/', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
-// POST /api/shipping — create shipping record (move from unpaid → pending)
+// POST /api/shipping — create shipping record
 router.post('/', async (req, res) => {
   try {
     const { order_id, delivery_method, gig_tracking, delivery_staff_id } = req.body;
     if (!order_id || !delivery_method) return res.status(400).json({ message: 'Missing fields' });
-
-    // Check existing
     const [existing] = await pool.query('SELECT id FROM shipping_records WHERE order_id = ? AND status != ?', [order_id, 'returned']);
     if (existing.length > 0) return res.status(400).json({ message: 'Already has active shipping' });
-
     const code = genShippingCode();
-    let delivery_staff_name = '';
+    let staffName = '';
     if (delivery_method === 'own' && delivery_staff_id) {
       const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id = ?', [delivery_staff_id]);
-      if (ds.length > 0) delivery_staff_name = ds[0].name;
+      if (ds.length > 0) staffName = ds[0].name;
     }
     await pool.query(
       'INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, delivery_staff_id, delivery_staff_name) VALUES (?,?,?,?,?,?)',
-      [order_id, code, delivery_method, gig_tracking || '', delivery_method === 'own' ? delivery_staff_id : null, delivery_staff_name]
+      [order_id, code, delivery_method, gig_tracking || '', delivery_method === 'own' ? delivery_staff_id : null, staffName]
     );
     res.status(201).json({ code });
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
+// PUT /api/shipping/:id — edit tracking/staff
+router.put('/:id', async (req, res) => {
+  try {
+    const { gig_tracking, delivery_staff_id, operator } = req.body;
+    const [rows] = await pool.query('SELECT * FROM shipping_records WHERE id=?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
+    let staffName = rows[0].delivery_staff_name || '';
+    let detail = '';
+    if (gig_tracking !== undefined) {
+      await pool.query('UPDATE shipping_records SET gig_tracking=?, updated_by=? WHERE id=?', [gig_tracking, operator, rows[0].id]);
+      detail = 'Tracking: ' + gig_tracking;
+    }
+    if (delivery_staff_id) {
+      const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
+      if (ds.length > 0) staffName = ds[0].name;
+      await pool.query('UPDATE shipping_records SET delivery_staff_id=?, delivery_staff_name=?, updated_by=? WHERE id=?', [delivery_staff_id, staffName, operator, rows[0].id]);
+      detail = 'Staff: ' + staffName;
+    }
+    await logAction(rows[0].id, 'modify', detail, operator);
+    res.json({ message: 'Updated' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
 // POST /api/shipping/:id/action — update status
 router.post('/:id/action', async (req, res) => {
   try {
-    const { action, delivery_method, gig_tracking, delivery_staff_id } = req.body;
+    const { action, delivery_method, gig_tracking, delivery_staff_id, operator } = req.body;
     const [rows] = await pool.query('SELECT * FROM shipping_records WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
-
     const rec = rows[0];
+
     const validActions = {
-      pending: ['confirm_ship', 'deliver', 'return', 'reassign'],
+      pending: ['confirm_ship'],
       in_transit: ['deliver', 'return', 'reassign'],
       delivered: ['return'],
     };
-
     if (!validActions[rec.status] || !validActions[rec.status].includes(action)) {
       return res.status(400).json({ message: `Cannot ${action} in ${rec.status} status` });
     }
 
-    let newStatus;
-    let setExtra = '';
+    let newStatus, setExtra = '';
     if (action === 'confirm_ship') {
       newStatus = 'in_transit'; setExtra = ', shipped_at = NOW()';
       if (delivery_method) {
@@ -91,16 +115,23 @@ router.post('/:id/action', async (req, res) => {
     }
     else if (action === 'deliver') newStatus = 'delivered';
     else if (action === 'return') { newStatus = 'returned'; setExtra = ', returned_at = NOW()'; }
-    else if (action === 'reassign') {
-      newStatus = 'pending';
-      if (delivery_method) {
-        await pool.query('UPDATE shipping_records SET delivery_method=?, gig_tracking=?, delivery_staff_id=? WHERE id=?',
-          [delivery_method, gig_tracking || '', delivery_method === 'own' ? delivery_staff_id : null, rec.id]);
-      }
-    }
+    else if (action === 'reassign') { newStatus = 'pending'; }
 
-    await pool.query(`UPDATE shipping_records SET status = ?, updated_at = NOW() ${setExtra} WHERE id = ?`, [newStatus, rec.id]);
+    await pool.query(`UPDATE shipping_records SET status = ?, updated_at = NOW(), updated_by = ? ${setExtra} WHERE id = ?`, [newStatus, operator || '', rec.id]);
+
+    // Log
+    const detail = (action === 'confirm_ship' && delivery_method) ? 'Method: ' + delivery_method.toUpperCase() : '';
+    await logAction(rec.id, action, detail, operator);
+
     res.json({ message: 'Status updated', status: newStatus });
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
+// GET /api/shipping/:id/logs
+router.get('/:id/logs', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM shipping_logs WHERE shipping_id=? ORDER BY created_at DESC', [req.params.id]);
+    res.json(rows);
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 

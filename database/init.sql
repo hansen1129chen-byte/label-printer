@@ -98,10 +98,22 @@ CREATE TABLE shipping_records (
     status ENUM('pending','in_transit','delivered','returned') DEFAULT 'pending',
     shipped_at DATETIME NULL,
     returned_at DATETIME NULL,
+    updated_by VARCHAR(50) DEFAULT '',
     initiated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     FOREIGN KEY (delivery_staff_id) REFERENCES delivery_staff(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Shipping operation logs
+CREATE TABLE shipping_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    shipping_id BIGINT NOT NULL,
+    action VARCHAR(50) NOT NULL COMMENT 'ship,deliver,return,reassign,modify',
+    detail VARCHAR(200) DEFAULT '',
+    operator VARCHAR(50) DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shipping_id) REFERENCES shipping_records(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Default seed data
