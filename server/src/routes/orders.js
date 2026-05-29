@@ -94,23 +94,23 @@ router.get('/pdf', async (req, res) => {
         y += 10;
       }
 
-      // Invoice number: 13px ≈ 6pt, mt-8 ≈ 10pt gap
-      y += 10;
-      doc.font('Helvetica').fontSize(6).fillColor('#111');
-      doc.text('INVOICE No.  ' + order.order_no, M, y); y += 8;
+      // Invoice number
+      y += 6;
+      doc.font('Helvetica').fontSize(5).fillColor('#111');
+      doc.text('INVOICE No.  ' + order.order_no, M, y); y += 7;
 
-      // Customer info: 13px ≈ 6pt, mt-4 ≈ 6pt gap
-      doc.fontSize(6);
-      if (order.customer_name) { doc.text(order.customer_name.toUpperCase(), M, y); y += 8; }
-      if (order.customer_phone) { doc.text(order.customer_phone, M, y); y += 8; }
+      // Customer info
+      doc.fontSize(5);
+      if (order.customer_name) { doc.text(order.customer_name.toUpperCase(), M, y); y += 6; }
+      if (order.customer_phone) { doc.text(order.customer_phone, M, y); y += 6; }
       if (order.customer_address) {
-        doc.fontSize(5.5);
-        doc.text(order.customer_address, M, y, { width: IW }); y = doc.y + 4;
+        doc.fontSize(4.5);
+        doc.text(order.customer_address, M, y, { width: IW }); y = doc.y + 2;
       }
 
-      // Table: mt-4, border-top black 1px
-      y += 4;
-      doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.8).stroke('#000'); doc.lineWidth(0.5);
+      // Table
+      y += 2;
+      doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.6).stroke('#000'); doc.lineWidth(0.5);
 
       // Column layout (from CSS grid: 1.4fr 1fr 0.6fr 1fr = 4.0fr total)
       const totalFr = 4.0;
@@ -120,50 +120,50 @@ router.get('/pdf', async (req, res) => {
       const c3 = c2 + (0.6 / totalFr) * IW; // QTY
       const c4 = W - M;                      // Amount (right edge)
 
-      // Table header: 15px ≈ 7pt, py-3, border-b black
-      y += 4;
-      doc.font('Helvetica-Bold').fontSize(7).fillColor('#111');
+      // Table header
+      y += 3;
+      doc.font('Helvetica-Bold').fontSize(5.5).fillColor('#111');
       doc.text('Item', c0, y);
       doc.text('Price', c1, y, { width: c2 - c1, align: 'center' });
       doc.text('QTY', c2, y, { width: c3 - c2, align: 'center' });
       doc.text('Amount', c3, y, { width: c4 - c3, align: 'right' });
-      y += 12;
+      y += 9;
       doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
 
-      // Items: 14px ≈ 6pt, py-2.5
-      doc.font('Helvetica').fontSize(6);
+      // Items
+      doc.font('Helvetica').fontSize(5);
       let itemTotal = 0, totalQty = 0;
       items.forEach(item => {
-        y += 6;
+        y += 5;
         doc.text(item.product_name, c0, y, { width: c1 - c0 - 4 });
         doc.text('₦' + Number(item.unit_price).toLocaleString(), c1, y, { width: c2 - c1, align: 'center' });
         doc.text(String(item.quantity), c2, y, { width: c3 - c2, align: 'center' });
         doc.text('₦' + Number(item.subtotal).toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
         itemTotal += Number(item.subtotal);
         totalQty += item.quantity;
-        y += 6;
+        y += 5;
       });
 
-      // Total row: border-t, py-3, 14px ≈ 6pt
-      y += 2;
+      // Total row
+      y += 1;
       doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
-      y += 6;
-      doc.font('Helvetica-Bold').fontSize(6).fillColor('#111');
+      y += 4;
+      doc.font('Helvetica-Bold').fontSize(5.5).fillColor('#111');
       doc.text('Total:', c1, y, { width: c3 - c1, align: 'right' });
       doc.text(String(totalQty), c2, y, { width: c3 - c2, align: 'center' });
       doc.text('₦' + itemTotal.toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
 
-      // Footer: mt-6, 14px ≈ 6pt, leading-relaxed
-      y = doc.y + 16;
-      doc.font('Helvetica').fontSize(6).fillColor('#111');
-      doc.text('Thank you for choosing PARFCO!', M, y); y += 12;
-      doc.text('For any questions about your purchase, contact', M, y); y += 8;
-      doc.font('Helvetica-Bold').fontSize(6);
-      doc.text('us on WhatsApp at 0707 093 0000', M, y);
-      doc.font('Helvetica').fontSize(5.5);
-      y += 8;
-      doc.text('Customer Service Hours:', M, y); y += 8;
-      doc.text('Mon–Fri, 10AM–5PM  ;  Sat, 10AM–2PM', M, y); y += 10;
+      // Footer
+      y = doc.y + 10;
+      doc.font('Helvetica').fontSize(5).fillColor('#111');
+      doc.text('Thank you for choosing PARFCO!', M, y); y += 8;
+      doc.text('For any questions about your purchase, contact', M, y); y += 6;
+      doc.font('Helvetica-Bold').fontSize(5);
+      doc.text('us on WhatsApp at 0913 866 6675', M, y);
+      doc.font('Helvetica').fontSize(4.5);
+      y += 6;
+      doc.text('Customer Service Hours:', M, y); y += 6;
+      doc.text('Mon–Fri, 10AM–5PM  ;  Sat, 10AM–2PM', M, y); y += 7;
       doc.text('Enjoy your fragrance!', M, y);
     });
 
