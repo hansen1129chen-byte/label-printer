@@ -160,10 +160,9 @@ router.get('/pdf', async (req, res) => {
       y = doc.y + 10;
       doc.font(FONT_BODY).fontSize(FS_BODY).fillColor('#111');
       doc.text('Thank you for choosing PARFCO!', M, y, { width: IW }); y += 7;
-      doc.text('For any questions about your purchase, contact', M, y, { width: IW }); y += 6;
-      doc.font('Helvetica-Bold').fontSize(FS_BODY);
-      doc.text('us on WhatsApp at 0913 866 6675', M, y, { width: IW });
+      doc.text('For any questions about your purchase, contact us on WhatsApp at 0913 866 6675', M, y, { width: IW });
       doc.font(FONT_BODY).fontSize(FS_BODY);
+      y += 6;
       y += 6;
       doc.text('Customer Service Hours:', M, y, { width: IW }); y += 6;
       doc.text('Mon–Fri, 10AM–5PM  ;  Sat, 10AM–2PM', M, y, { width: IW }); y += 7;
