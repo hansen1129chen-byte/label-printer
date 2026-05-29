@@ -2,7 +2,7 @@
   <div class="login-wrap">
     <div class="login-card">
       <div class="login-brand">
-        <span class="login-logo">P<span class="italic">A</span>RFCO</span>
+        <img src="/logo.png" alt="PARFCO" class="login-logo-img" />
         <span class="login-sub">Label Printer</span>
       </div>
       <el-form @submit.prevent="handleLogin" label-position="top">
@@ -42,8 +42,7 @@ async function handleLogin() {
 .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--bg); }
 .login-card { width:400px; padding:36px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); }
 .login-brand { text-align:center; margin-bottom:24px; }
-.login-logo { font-family:'EB Garamond','Georgia',serif; font-size:28px; letter-spacing:-1px; font-weight:500; color:var(--fg); }
-.login-logo .italic { font-style:italic; }
+.login-logo-img { height:40px; }
 .login-sub { display:block; font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--fg-muted); font-weight:500; margin-top:2px; }
 .login-btn { width:100%; height:44px; font-size:14px; font-weight:600; background:var(--primary); color:var(--primary-fg); border:none; }
 .login-btn:hover { opacity:0.9; }

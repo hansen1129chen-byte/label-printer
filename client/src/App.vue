@@ -4,7 +4,7 @@
       <!-- Top bar -->
       <el-header class="app-header">
         <div class="header-left">
-          <span class="logo">P<span class="logo-italic">A</span>RFCO</span>
+          <img src="/logo.png" alt="PARFCO" class="logo-img" />
           <span class="subtitle">Label Printer</span>
         </div>
         <div class="header-right">
@@ -75,9 +75,8 @@ function handleLogout() { if (confirm('Logout?')) { logout(); router.replace('/l
   border-bottom:1px solid var(--border); position:sticky; top:0; z-index:30;
 }
 .header-left { display:flex; align-items:baseline; gap:10px; }
-.logo { font-family:'EB Garamond', 'Georgia', serif; font-size:24px; letter-spacing:-1px; font-weight:500; color:var(--fg); }
-.logo-italic { font-style:italic; }
-.subtitle { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--fg-muted); font-weight:500; }
+.logo-img { height:32px; }
+.subtitle { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--fg-muted); font-weight:500; margin-left:4px; }
 .header-right { display:flex; align-items:center; gap:12px; }
 .user-badge { width:28px;height:28px;border-radius:50%;background:var(--accent);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600; }
 .user-name { font-size:13px;font-weight:500; }
