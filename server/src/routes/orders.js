@@ -133,6 +133,54 @@ router.put('/:id', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
+// GET /api/orders/export - export to CSV
+router.get('/export', async (req, res) => {
+  try {
+    const { date_from, date_to, streamer_id, payment_status_id, product_names, ids } = req.query;
+    let where = '1=1';
+    const params = [];
+    if (ids) { where += ' AND o.id IN (' + ids.split(',').map(() => '?').join(',') + ')'; ids.split(',').forEach(id => params.push(id)); }
+    if (date_from) { where += ' AND o.created_at >= ?'; params.push(date_from); }
+    if (date_to) { where += ' AND o.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
+    if (streamer_id) { where += ' AND o.streamer_id = ?'; params.push(streamer_id); }
+    if (payment_status_id) { where += ' AND o.payment_status_id = ?'; params.push(payment_status_id); }
+    if (product_names) {
+      const names = product_names.split(',').filter(Boolean);
+      if (names.length > 0) {
+        where += ' AND ' + names.map(() => 'o.id IN (SELECT oi.order_id FROM order_items oi WHERE oi.product_name LIKE ?)').join(' AND ');
+        names.forEach(n => params.push('%' + n.trim() + '%'));
+      }
+    }
+
+    const [rows] = await pool.query(
+      `SELECT o.order_no, o.customer_name, o.customer_phone, o.customer_address,
+        o.streamer_name, o.payment_status_name, o.total_amount, o.actual_amount,
+        o.created_at,
+        oi.product_code, oi.product_name, oi.unit_price, oi.quantity, oi.subtotal
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE ${where} ORDER BY o.created_at DESC, oi.id`, params
+    );
+
+    // CSV header with BOM for Excel UTF-8
+    const BOM = '﻿';
+    let csv = BOM + 'Order No.,Customer,Phone,Address,Streamer,Payment,Total,Actual,Date,Product Code,Product Name,Unit Price,Quantity,Subtotal\n';
+
+    for (const r of rows) {
+      csv += [
+        r.order_no, r.customer_name, r.customer_phone, r.customer_address,
+        r.streamer_name, r.payment_status_name, r.total_amount, r.actual_amount,
+        r.created_at?.slice(0, 10), r.product_code, r.product_name,
+        r.unit_price, r.quantity, r.subtotal
+      ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"').join(',') + '\n';
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=orders_export.csv');
+    res.send(csv);
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
 // DELETE /api/orders/:id - admin only
 router.delete('/:id', adminOnly, async (req, res) => {
   try {

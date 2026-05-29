@@ -4,6 +4,7 @@
       <h2>Orders</h2>
       <div style="display:flex;gap:10px">
         <el-button type="primary" @click="$router.push('/orders/new')">+ New Order</el-button>
+        <el-button @click="exportCSV" :disabled="!selectedRows.length">Export Excel</el-button>
         <el-button :disabled="refreshCooldown > 0" :loading="refreshing" @click="doRefresh">{{ refreshCooldown > 0 ? 'Wait ' + refreshCooldown + 's' : 'Refresh' }}</el-button>
       </div>
     </div>
@@ -34,7 +35,8 @@
     </el-form>
 
     <!-- Table -->
-    <el-table :data="orders" stripe v-loading="loading" style="width:100%">
+    <el-table :data="orders" stripe v-loading="loading" style="width:100%" @selection-change="val => selectedRows = val">
+      <el-table-column type="selection" width="40" />
       <el-table-column prop="order_no" label="Order No." width="130" />
       <el-table-column prop="customer_name" label="Customer" min-width="140" />
       <el-table-column prop="customer_phone" label="Phone" width="130" />
@@ -119,6 +121,7 @@ const page = ref(1)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
 const filters = ref({ dates: null, streamer_id: null, payment_status_id: null, product_names: [] })
+const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)
 
@@ -159,6 +162,16 @@ function doRefresh() {
   refreshing.value = true
   localStorage.setItem(lastRefreshKey, String(now))
   loadOrders().then(() => { refreshing.value = false })
+}
+
+function exportCSV() {
+  if (!selectedRows.value.length) return
+  const ids = selectedRows.value.map(r => r.id).join(',')
+  const params = new URLSearchParams()
+  if (filters.value.dates) { params.set('date_from', filters.value.dates[0]); params.set('date_to', filters.value.dates[1]) }
+  if (filters.value.product_names?.length) params.set('product_names', filters.value.product_names.join(','))
+  params.set('ids', ids)
+  window.open('/api/orders/export?' + params.toString(), '_blank')
 }
 
 async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
