@@ -70,7 +70,7 @@ router.get('/pdf', async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=labels.pdf');
     doc.pipe(res);
 
-    const logoPath = require('path').join(__dirname, '..', '..', 'logo.png');
+    const logoPath = require('path').join(__dirname, '..', '..', 'label.jpg');
 
     orders.forEach((order, oi) => {
       if (oi > 0) doc.addPage();
@@ -82,10 +82,10 @@ router.get('/pdf', async (req, res) => {
       let y = M;
 
       // Logo image (replaces PARFCO text + slogan)
-      // Logo image
+      // Logo image (label.jpg)
       try {
-        doc.image(logoPath, (W - 52) / 2, y, { width: 52 });
-        y += 26;
+        doc.image(logoPath, (W - 80) / 2, y, { width: 80 });
+        y += 18;
       } catch (e) {
         doc.font('Times-Roman').fontSize(12).fillColor('#111');
         doc.text('PARFCO', M, y, { align: 'center', width: IW });
