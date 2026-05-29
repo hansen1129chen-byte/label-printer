@@ -73,7 +73,13 @@ async function handleSave() {
   if (!form.value.code || !form.value.name || !form.value.price) { ElMessage.warning('All fields required'); return }
   const p = { ...form.value, price: parseFloat(form.value.price) }
   try {
-    if (editing.value) { await api.put(`/products/${editing.value.id}`, p) } else { await api.post('/products', p) }
+    if (editing.value) { await api.put(`/products/${editing.value.id}`, p) }
+    else {
+      await api.post('/products', p)
+      // Fetch all and reorder sequentially
+      const { data } = await api.get('/products', { params: { page_size: 10000 } })
+      await api.post('/products/reorder', { order: data.list.map(x => x.id) })
+    }
     ElMessage.success('Saved'); showDialog.value = false; loadProducts()
   } catch (err) { ElMessage.error(err.response?.data?.message || 'Failed') }
 }
