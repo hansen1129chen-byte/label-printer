@@ -1,2 +1,3 @@
 node_modules/\ndist/\n*.log\n.env\nuploads/\n
 dist/\nnode_modules/
+dist/
