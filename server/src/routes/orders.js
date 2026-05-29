@@ -189,7 +189,8 @@ router.get('/export', async (req, res) => {
 // GET /api/orders/:id
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT o.* FROM orders o WHERE o.id=?',[req.params.id]);
+    const [rows] = await pool.query(
+      'SELECT o.*, sr.status AS shipping_status, sr.shipping_code FROM orders o LEFT JOIN shipping_records sr ON sr.order_id=o.id WHERE o.id=?',[req.params.id]);
     if (rows.length===0) return res.status(404).json({ message: 'Not found' });
     const [items] = await pool.query('SELECT * FROM order_items WHERE order_id=?',[rows[0].id]);
     rows[0].items = items;

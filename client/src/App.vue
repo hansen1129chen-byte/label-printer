@@ -1,42 +1,41 @@
 <template>
   <div id="app-root">
     <el-container v-if="showLayout">
+      <!-- Top bar -->
       <el-header class="app-header">
         <div class="header-left">
-          <span class="logo">PARFCO</span>
+          <span class="logo">P<span class="logo-italic">A</span>RFCO</span>
           <span class="subtitle">Label Printer</span>
         </div>
         <div class="header-right">
+          <div class="user-badge"><span>AD</span></div>
           <span class="user-name">{{ user?.username }}</span>
-          <el-button size="small" @click="goProfile">Profile</el-button>
-          <el-button size="small" type="danger" plain @click="handleLogout">Logout</el-button>
+          <span class="sep"></span>
+          <button class="logout-btn" @click="handleLogout">Logout</button>
         </div>
       </el-header>
       <el-container>
-        <el-aside width="200px" class="app-sidebar">
-          <el-menu :default-active="activeMenu" router :collapse="false">
-            <el-menu-item index="/orders">
-              <el-icon><Document /></el-icon> Orders
-            </el-menu-item>
-            <el-menu-item index="/shipping">
-              <el-icon><Van /></el-icon> Shipping
-            </el-menu-item>
-            <el-menu-item index="/products">
-              <el-icon><Goods /></el-icon> Products
-            </el-menu-item>
-            <el-menu-item v-if="user?.role === 'admin'" index="/config">
-              <el-icon><Setting /></el-icon> Configuration
-            </el-menu-item>
-            <el-menu-item index="/stats">
-              <el-icon><DataAnalysis /></el-icon> Statistics
-            </el-menu-item>
-            <el-menu-item v-if="user?.role === 'admin'" index="/accounts">
-              <el-icon><UserFilled /></el-icon> Accounts
-            </el-menu-item>
+        <!-- Sidebar -->
+        <el-aside width="240px" class="app-sidebar">
+          <el-menu :default-active="activeMenu" router>
+            <el-menu-item index="/orders">Orders</el-menu-item>
+            <el-menu-item index="/shipping">Shipping</el-menu-item>
+            <el-menu-item index="/products">Products</el-menu-item>
+            <el-menu-item v-if="user?.role === 'admin'" index="/config">Configuration</el-menu-item>
+            <el-menu-item index="/stats">Statistics</el-menu-item>
+            <el-menu-item v-if="user?.role === 'admin'" index="/accounts">Accounts</el-menu-item>
           </el-menu>
+          <div class="sidebar-footer">
+            <p class="sys-label">System</p>
+            <p class="sys-ver">v1.0.0 · Production</p>
+          </div>
         </el-aside>
         <el-main class="app-main">
-          <router-view />
+          <router-view v-slot="{ Component }">
+            <transition name="page-fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
         </el-main>
       </el-container>
     </el-container>
@@ -63,21 +62,37 @@ const activeMenu = computed(() => {
   if (p.startsWith('/config')) return '/config'
   if (p.startsWith('/stats')) return '/stats'
   if (p.startsWith('/accounts')) return '/accounts'
-  if (p.startsWith('/profile')) return '/orders'
   return '/orders'
 })
 
-function goProfile() { router.push('/profile') }
 function handleLogout() { if (confirm('Logout?')) { logout(); router.replace('/login') } }
 </script>
 
 <style scoped>
-.app-header { display:flex; justify-content:space-between; align-items:center; background:#1a1a2e; color:#fff; height:56px; padding:0 20px; }
-.header-left { display:flex; align-items:baseline; gap:12px; }
-.logo { font-size:20px; font-weight:800; letter-spacing:2px; color:#409eff; }
-.subtitle { font-size:12px; color:#999; }
-.header-right { display:flex; align-items:center; gap:10px; }
-.user-name { color:#ccc; font-size:13px; }
-.app-sidebar { background:#fafafa; border-right:1px solid #eee; min-height:calc(100vh - 56px); }
-.app-main { background:#f5f7fa; padding:20px; min-height:calc(100vh - 56px); }
+.app-header {
+  display:flex; justify-content:space-between; align-items:center;
+  height:56px; padding:0 24px; background:var(--bg-card);
+  border-bottom:1px solid var(--border); position:sticky; top:0; z-index:30;
+}
+.header-left { display:flex; align-items:baseline; gap:10px; }
+.logo { font-family:'EB Garamond', 'Georgia', serif; font-size:24px; letter-spacing:-1px; font-weight:500; color:var(--fg); }
+.logo-italic { font-style:italic; }
+.subtitle { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--fg-muted); font-weight:500; }
+.header-right { display:flex; align-items:center; gap:12px; }
+.user-badge { width:28px;height:28px;border-radius:50%;background:var(--accent);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600; }
+.user-name { font-size:13px;font-weight:500; }
+.sep { width:1px;height:16px;background:var(--border); }
+.logout-btn { background:none;border:none;font-size:13px;color:var(--fg-muted);cursor:pointer;display:flex;align-items:center;gap:4px; }
+.logout-btn:hover { color:var(--fg); }
+
+.app-sidebar {
+  height:calc(100vh - 56px);position:sticky;top:56px;
+  background:var(--bg-card);border-right:1px solid var(--border);
+  padding:16px 8px;display:flex;flex-direction:column;
+}
+.sidebar-footer { margin-top:auto;padding-top:16px;border-top:1px solid var(--border);padding-left:12px; }
+.sys-label { font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--fg-muted);font-weight:600; }
+.sys-ver { font-size:12px;color:var(--fg-muted);margin-top:4px; }
+
+.app-main { background:var(--bg);padding:32px;min-height:calc(100vh - 56px); }
 </style>
