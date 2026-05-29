@@ -46,7 +46,7 @@
       <el-table-column prop="customer_phone" label="Phone" width="130" />
       <el-table-column prop="customer_address" label="Address" min-width="200" show-overflow-tooltip />
       <el-table-column prop="streamer_name" label="Streamer" width="100" />
-      <el-table-column label="Items" width="60">
+      <el-table-column label="Items" width="70">
         <template #default="{row}">{{ row.product_count || 0 }}</template>
       </el-table-column>
       <el-table-column label="Payment" width="100">
@@ -54,16 +54,16 @@
           <el-tag :type="row.payment_status_name === 'PAID' ? 'success' : 'danger'" size="small">{{ row.payment_status_name }}</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="Shipping" width="110">
+        <template #default="{row}">
+          <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="total_amount" label="Total" width="100">
         <template #default="{row}">{{ '₦' + Number(row.total_amount).toLocaleString() }}</template>
       </el-table-column>
       <el-table-column prop="actual_amount" label="Actual" width="100">
         <template #default="{row}">{{ '₦' + Number(row.actual_amount).toLocaleString() }}</template>
-      </el-table-column>
-      <el-table-column label="Shipping" width="110">
-        <template #default="{row}">
-          <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
-        </template>
       </el-table-column>
       <el-table-column prop="created_at" label="Date" width="110">
         <template #default="{row}">{{ row.created_at?.slice(0,10) }}</template>
