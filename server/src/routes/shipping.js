@@ -17,10 +17,12 @@ async function logAction(shippingId, action, detail, operator) {
 // GET /api/shipping
 router.get('/', async (req, res) => {
   try {
-    const { status, date_from, date_to, page = 1, page_size = 20 } = req.query;
+    const { status, date_from, date_to, order_no, customer, page = 1, page_size = 20 } = req.query;
     let where = '1=1';
     const params = [];
     if (status) { where += ' AND sr.status = ?'; params.push(status); }
+    if (order_no) { where += ' AND o.order_no LIKE ?'; params.push('%'+order_no+'%'); }
+    if (customer) { where += ' AND (o.customer_name LIKE ? OR o.customer_phone LIKE ?)'; params.push('%'+customer+'%', '%'+customer+'%'); }
     if (date_from) { where += ' AND sr.initiated_at >= ?'; params.push(date_from); }
     if (date_to) { where += ' AND sr.initiated_at <= ?'; params.push(date_to + ' 23:59:59'); }
 

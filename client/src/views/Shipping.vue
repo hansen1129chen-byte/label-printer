@@ -2,6 +2,11 @@
   <div class="page-card">
     <h2 style="margin-bottom:16px">Shipping Management</h2>
 
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <el-input v-model="searchOrderNo" placeholder="Search order no..." clearable style="width:200px" @input="onSearch" />
+      <el-input v-model="searchCustomer" placeholder="Search name / phone..." clearable style="width:220px" @input="onSearch" />
+    </div>
+
     <el-tabs v-model="activeTab" @tab-change="loadList">
       <el-tab-pane label="Pending" name="pending" />
       <el-tab-pane label="In Transit" name="in_transit" />
@@ -131,12 +136,19 @@ const viewData = ref(null)
 const logs = ref([])
 const deliveryStaff = ref([])
 const selectAll = ref(false)
+const searchOrderNo = ref('')
+const searchCustomer = ref('')
+let searchTimer = null
+function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(loadList, 300) }
 
 function fmtDate(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-GB') + ' ' + t.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
 
 async function loadList() {
   loading.value = true
-  const { data } = await api.get('/shipping', { params: { status: activeTab.value, page_size: 100 } })
+  const p = { status: activeTab.value, page_size: 100 }
+  if (searchOrderNo.value) p.order_no = searchOrderNo.value
+  if (searchCustomer.value) p.customer = searchCustomer.value
+  const { data } = await api.get('/shipping', { params: p })
   list.value = data.list.map(r => ({ ...r, checked: false }))
   loading.value = false
 }

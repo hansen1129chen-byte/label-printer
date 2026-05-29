@@ -130,7 +130,7 @@ onMounted(async () => {
   const [{ data: s }, { data: ps }, { data: pr }] = await Promise.all([
     api.get('/config/streamers'), api.get('/config/payment_statuses'), api.get('/products')
   ])
-  streamers.value = s; payStatuses.value = ps; products.value = pr
+  streamers.value = s; payStatuses.value = ps; products.value = pr.list || pr
   if (isEdit.value) await loadOrder()
 })
 </script>
