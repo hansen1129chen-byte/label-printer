@@ -18,6 +18,11 @@
           <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
         </el-select>
       </el-form-item>
+      <el-form-item label="Product">
+        <el-select v-model="filters.product_names" placeholder="All" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+          <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="Payment">
         <el-select v-model="filters.payment_status_id" placeholder="All" clearable size="small" style="width:130px">
           <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
@@ -109,7 +114,8 @@ const payStatuses = ref([])
 const total = ref(0)
 const page = ref(1)
 const isAdmin = ref(getUser()?.role === 'admin')
-const filters = ref({ dates: null, streamer_id: null, payment_status_id: null })
+const products = ref([])
+const filters = ref({ dates: null, streamer_id: null, payment_status_id: null, product_names: [] })
 const showDetail = ref(false)
 const currentOrder = ref(null)
 
@@ -122,6 +128,7 @@ async function loadOrders() {
   if (filters.value.dates) { params.date_from = filters.value.dates[0]; params.date_to = filters.value.dates[1] }
   if (filters.value.streamer_id) params.streamer_id = filters.value.streamer_id
   if (filters.value.payment_status_id) params.payment_status_id = filters.value.payment_status_id
+  if (filters.value.product_names && filters.value.product_names.length > 0) params.product_names = filters.value.product_names.join(',')
   const { data } = await api.get('/orders', { params })
   orders.value = data.list; total.value = data.total; loading.value = false
 }
@@ -153,5 +160,7 @@ function doRefresh() {
 
 async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
 
-onMounted(() => { loadStreamers(); loadPayStatuses(); loadOrders() })
+async function loadProducts() { const { data } = await api.get('/products'); products.value = data }
+
+onMounted(() => { loadStreamers(); loadPayStatuses(); loadProducts(); loadOrders() })
 </script>

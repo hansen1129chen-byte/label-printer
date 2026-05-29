@@ -14,13 +14,20 @@ function genOrderNo(date) {
 // GET /api/orders
 router.get('/', async (req, res) => {
   try {
-    const { date_from, date_to, streamer_id, payment_status_id, status, page = 1, page_size = 20 } = req.query;
+    const { date_from, date_to, streamer_id, payment_status_id, product_names, page = 1, page_size = 20 } = req.query;
     let where = '1=1';
     const params = [];
     if (date_from) { where += ' AND o.created_at >= ?'; params.push(date_from); }
     if (date_to) { where += ' AND o.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
     if (streamer_id) { where += ' AND o.streamer_id = ?'; params.push(streamer_id); }
     if (payment_status_id) { where += ' AND o.payment_status_id = ?'; params.push(payment_status_id); }
+    if (product_names) {
+      const names = product_names.split(',').filter(Boolean);
+      if (names.length > 0) {
+        where += ' AND o.id IN (SELECT DISTINCT oi.order_id FROM order_items oi WHERE ' + names.map(() => 'oi.product_name LIKE ?').join(' OR ') + ')';
+        names.forEach(n => params.push('%' + n.trim() + '%'));
+      }
+    }
 
     const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o WHERE ${where}`, params);
     const total = countRows[0].total;
