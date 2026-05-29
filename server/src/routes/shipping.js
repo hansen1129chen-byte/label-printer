@@ -65,7 +65,7 @@ router.post('/:id/action', async (req, res) => {
 
     const rec = rows[0];
     const validActions = {
-      pending: ['confirm_ship'],
+      pending: ['confirm_ship', 'deliver', 'return', 'reassign'],
       in_transit: ['deliver', 'return', 'reassign'],
     };
 
@@ -74,7 +74,19 @@ router.post('/:id/action', async (req, res) => {
     }
 
     let newStatus;
-    if (action === 'confirm_ship') newStatus = 'in_transit';
+    if (action === 'confirm_ship') {
+      newStatus = 'in_transit';
+      // Update delivery method + details
+      if (delivery_method) {
+        let dsName = '';
+        if (delivery_method === 'own' && delivery_staff_id) {
+          const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
+          if (ds.length > 0) dsName = ds[0].name;
+        }
+        await pool.query('UPDATE shipping_records SET delivery_method=?, gig_tracking=?, delivery_staff_id=?, delivery_staff_name=? WHERE id=?',
+          [delivery_method, gig_tracking || '', delivery_method==='own' ? delivery_staff_id : null, dsName, rec.id]);
+      }
+    }
     else if (action === 'deliver') newStatus = 'delivered';
     else if (action === 'return') newStatus = 'returned';
     else if (action === 'reassign') {

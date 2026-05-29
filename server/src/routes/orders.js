@@ -151,7 +151,7 @@ router.post('/', async (req, res) => {
         [orderResult.insertId,oi.product_id,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal]);
     }
     const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
-    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,delivery_method,status) VALUES (?,?,'own','pending')",[orderResult.insertId,shipCode]);
+    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status) VALUES (?,?,'pending')",[orderResult.insertId,shipCode]);
     conn.release();
     res.status(201).json({ id:orderResult.insertId, order_no:orderNo, total_amount:totalAmount });
   } catch (err) { conn.release(); console.error(err); res.status(500).json({ message: 'Server error' }); }
