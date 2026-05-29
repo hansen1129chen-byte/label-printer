@@ -26,11 +26,7 @@ router.get('/', async (req, res) => {
     const total = countRows[0].total;
 
     const [rows] = await pool.query(
-      `SELECT o.*, s.name AS streamer_name, ps.name AS payment_status_name
-       FROM orders o
-       LEFT JOIN streamers s ON o.streamer_id = s.id
-       LEFT JOIN payment_statuses ps ON o.payment_status_id = ps.id
-       WHERE ${where} ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
+      `SELECT o.* FROM orders o WHERE ${where} ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
     );
     res.json({ list: rows, total, page: parseInt(page) });
@@ -41,9 +37,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT o.*, s.name AS streamer_name, ps.name AS payment_status_name
-       FROM orders o LEFT JOIN streamers s ON o.streamer_id = s.id
-       LEFT JOIN payment_statuses ps ON o.payment_status_id = ps.id WHERE o.id = ?`, [req.params.id]);
+      `SELECT o.* FROM orders o WHERE o.id = ?`, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
     const [items] = await pool.query('SELECT * FROM order_items WHERE order_id = ?', [rows[0].id]);
     rows[0].items = items;
@@ -82,9 +76,20 @@ router.post('/', async (req, res) => {
 
     const actual = actual_amount != null ? Math.min(parseFloat(actual_amount), totalAmount) : totalAmount;
 
+    // Snapshot streamer and payment names
+    let streamer_name = '', payment_status_name = '';
+    if (streamer_id) {
+      const [sr] = await conn.query('SELECT name FROM streamers WHERE id = ?', [streamer_id]);
+      if (sr.length > 0) streamer_name = sr[0].name;
+    }
+    if (payment_status_id) {
+      const [ps] = await conn.query('SELECT name FROM payment_statuses WHERE id = ?', [payment_status_id]);
+      if (ps.length > 0) payment_status_name = ps[0].name;
+    }
+
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (order_no, customer_name, customer_gender, customer_phone, customer_address, streamer_id, payment_status_id, total_amount, actual_amount) VALUES (?,?,?,?,?,?,?,?,?)',
-      [orderNo, customer_name || '', customer_gender || '', customer_phone || '', customer_address || '', streamer_id || null, payment_status_id || null, totalAmount, actual]
+      'INSERT INTO orders (order_no, customer_name, customer_gender, customer_phone, customer_address, streamer_id, streamer_name, payment_status_id, payment_status_name, total_amount, actual_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      [orderNo, customer_name || '', customer_gender || '', customer_phone || '', customer_address || '', streamer_id || null, streamer_name, payment_status_id || null, payment_status_name, totalAmount, actual]
     );
 
     for (const oi of orderItems) {

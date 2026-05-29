@@ -51,7 +51,7 @@ CREATE TABLE products (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Orders
+-- Orders (all reference data is snapshotted)
 CREATE TABLE orders (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_no VARCHAR(20) NOT NULL UNIQUE,
@@ -60,7 +60,9 @@ CREATE TABLE orders (
     customer_phone VARCHAR(30) DEFAULT '',
     customer_address VARCHAR(500) DEFAULT '',
     streamer_id BIGINT DEFAULT NULL,
+    streamer_name VARCHAR(100) DEFAULT '',
     payment_status_id BIGINT DEFAULT NULL,
+    payment_status_name VARCHAR(50) DEFAULT '',
     total_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     actual_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     remark VARCHAR(500) DEFAULT '',
@@ -83,7 +85,7 @@ CREATE TABLE order_items (
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Shipping records
+-- Shipping records (delivery staff name is snapshotted)
 CREATE TABLE shipping_records (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_id BIGINT NOT NULL,
@@ -91,6 +93,7 @@ CREATE TABLE shipping_records (
     delivery_method ENUM('gig','own') NOT NULL,
     gig_tracking VARCHAR(100) DEFAULT '',
     delivery_staff_id BIGINT NULL,
+    delivery_staff_name VARCHAR(100) DEFAULT '',
     status ENUM('pending','in_transit','delivered','returned') DEFAULT 'pending',
     initiated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

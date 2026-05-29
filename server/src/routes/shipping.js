@@ -43,9 +43,14 @@ router.post('/', async (req, res) => {
     if (existing.length > 0) return res.status(400).json({ message: 'Already has active shipping' });
 
     const code = genShippingCode();
+    let delivery_staff_name = '';
+    if (delivery_method === 'own' && delivery_staff_id) {
+      const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id = ?', [delivery_staff_id]);
+      if (ds.length > 0) delivery_staff_name = ds[0].name;
+    }
     await pool.query(
-      'INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, delivery_staff_id) VALUES (?,?,?,?,?)',
-      [order_id, code, delivery_method, gig_tracking || '', delivery_method === 'own' ? delivery_staff_id : null]
+      'INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, delivery_staff_id, delivery_staff_name) VALUES (?,?,?,?,?,?)',
+      [order_id, code, delivery_method, gig_tracking || '', delivery_method === 'own' ? delivery_staff_id : null, delivery_staff_name]
     );
     res.status(201).json({ code });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
