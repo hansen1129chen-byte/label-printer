@@ -84,7 +84,7 @@ router.get('/pdf', async (req, res) => {
       // Logo image (replaces PARFCO text + slogan)
       // Logo image (label.jpg)
       try {
-        doc.image(logoPath, (W - 100) / 2, y, { width: 100 });
+        doc.image(logoPath, M, y, { width: IW });
         y += 18;
       } catch (e) {
         doc.font('Times-Roman').fontSize(12).fillColor('#111');
