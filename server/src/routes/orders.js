@@ -38,6 +38,85 @@ router.get('/', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
+// GET /api/orders/pdf?ids=1,2,3 - PDF labels (must be before /:id and /export)
+router.get('/pdf', async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const { ids } = req.query;
+    if (!ids) return res.status(400).json({ message: 'Select orders' });
+    const idList = ids.split(',').filter(Boolean);
+
+    // Fetch orders with items
+    const placeholders = idList.map(() => '?').join(',');
+    const [orders] = await pool.query(
+      `SELECT * FROM orders WHERE id IN (${placeholders}) ORDER BY id`, idList
+    );
+    const [allItems] = await pool.query(
+      `SELECT * FROM order_items WHERE order_id IN (${placeholders}) ORDER BY order_id, id`, idList
+    );
+
+    // Group items by order
+    const itemsByOrder = {};
+    allItems.forEach(item => {
+      if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+      itemsByOrder[item.order_id].push(item);
+    });
+
+    // 50mm x 80mm in points (1mm = 2.8346pt)
+    const W = 142;
+    const H = 227;
+    const doc = new PDFDocument({ size: [W, H], margin: 6 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=labels.pdf');
+    doc.pipe(res);
+
+    orders.forEach((order, oi) => {
+      if (oi > 0) doc.addPage();
+      const items = itemsByOrder[order.id] || [];
+
+      // Header
+      doc.fontSize(9).font('Helvetica-Bold').text('PARFCO', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(7).font('Helvetica').text('Order: ' + order.order_no, { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(6).text(order.customer_name, { align: 'center' });
+      doc.fontSize(5.5).text(order.customer_phone, { align: 'center' });
+      doc.fontSize(5).text(order.customer_address || '', { align: 'center', width: W - 12 });
+      doc.moveDown(0.3);
+
+      // Separator
+      doc.moveTo(6, doc.y).lineTo(W - 6, doc.y).stroke('#ccc');
+      doc.moveDown(0.3);
+
+      // Items
+      let itemTotal = 0;
+      items.forEach(item => {
+        doc.fontSize(5.5).font('Helvetica');
+        const line = item.product_name + ' x' + item.quantity;
+        const price = '₦' + Number(item.subtotal).toLocaleString();
+        doc.text(line, { continued: true, width: W - 50 });
+        doc.text(price, { align: 'right' });
+        itemTotal += Number(item.subtotal);
+      });
+
+      doc.moveDown(0.3);
+      doc.moveTo(6, doc.y).lineTo(W - 6, doc.y).stroke('#ccc');
+      doc.moveDown(0.2);
+      doc.fontSize(7).font('Helvetica-Bold').text('Total: ₦' + itemTotal.toLocaleString(), { align: 'right' });
+      doc.moveDown(0.5);
+
+      // Footer
+      const footerY = H - 30;
+      doc.fontSize(4.5).font('Helvetica').fillColor('#999');
+      doc.text('Thank you for choosing PARFCO.', 6, footerY, { align: 'center', width: W - 12 });
+      doc.text('Questions? Call 000 000 0000', { align: 'center', width: W - 12 });
+      doc.fillColor('#000');
+    });
+
+    doc.end();
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
 // GET /api/orders/export - XLSX with merged cells (must be before /:id)
 router.get('/export', async (req, res) => {
   try {

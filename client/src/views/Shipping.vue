@@ -129,7 +129,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../api'
-import { getUser } from '../utils/auth'
+import { getUser, getToken } from '../utils/auth'
 
 const user = getUser()
 const activeTab = ref('pending')
@@ -222,7 +222,8 @@ function printLabels() {
   const selected = list.value.filter(r => r.checked)
   if (!selected.length) { ElMessage.warning('Select orders'); return }
   const ids = selected.map(r => r.order_id).join(',')
-  window.open(`/api/orders/${ids}/pdf`, '_blank')
+  const p = new URLSearchParams({ ids, token: getToken() })
+  window.open('/api/orders/pdf?' + p.toString(), '_blank')
 }
 
 onMounted(async () => {
