@@ -82,58 +82,55 @@ router.get('/pdf', async (req, res) => {
       let y = M;
 
       // Logo image (replaces PARFCO text + slogan)
-      // Logo image (PARFCO + tagline)
+      // Logo image
       try {
-        doc.image(logoPath, (W - 66) / 2, y, { width: 66 });
-        y += 30;
+        doc.image(logoPath, (W - 52) / 2, y, { width: 52 });
+        y += 26;
       } catch (e) {
-        doc.font('Times-Roman').fontSize(14).fillColor('#111');
+        doc.font('Times-Roman').fontSize(12).fillColor('#111');
         doc.text('PARFCO', M, y, { align: 'center', width: IW });
-        y += 18;
-        doc.font('Helvetica').fontSize(5);
-        doc.text('Your scent   One tap away', M, y, { align: 'center', width: IW });
-        y += 8;
+        y += 16;
       }
 
       // Invoice number (bold)
-      y += 6;
+      y += 4;
       doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
-      doc.text('INVOICE No.  ' + order.order_no, M, y); y += 7;
+      doc.text('INVOICE No.  ' + order.order_no, M, y); y += 6;
 
-      // Customer info (regular)
-      doc.font('Helvetica').fontSize(5);
+      // Customer info (regular, body)
+      const FONT_BODY = 'Helvetica';
+      const FS_BODY = 4.5;
+      doc.font(FONT_BODY).fontSize(FS_BODY);
       const nameLine = (order.customer_name ? order.customer_name.toUpperCase() : '') +
         (order.customer_name && order.customer_phone ? '    ' + order.customer_phone : (order.customer_phone || ''));
       if (nameLine) { doc.text(nameLine, M, y); y += 6; }
       if (order.customer_address) {
-        doc.fontSize(4.5);
-        doc.text(order.customer_address, M, y, { width: IW }); y = doc.y + 2;
+        doc.text(order.customer_address, M, y, { width: IW }); y = doc.y + 1;
       }
 
       // Table
-      y += 2;
+      y += 1;
       doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.6).stroke('#000'); doc.lineWidth(0.5);
 
-      // Column layout (from CSS grid: 1.4fr 1fr 0.6fr 1fr = 4.0fr total)
       const totalFr = 4.0;
       const c0 = M;
-      const c1 = M + (1.4 / totalFr) * IW;  // Item
-      const c2 = c1 + (1.0 / totalFr) * IW; // Price
-      const c3 = c2 + (0.6 / totalFr) * IW; // QTY
-      const c4 = W - M;                      // Amount (right edge)
+      const c1 = M + (1.4 / totalFr) * IW;
+      const c2 = c1 + (1.0 / totalFr) * IW;
+      const c3 = c2 + (0.6 / totalFr) * IW;
+      const c4 = W - M;
 
-      // Table header
-      y += 3;
-      doc.font('Helvetica-Bold').fontSize(5.5).fillColor('#111');
+      // Table header (bold, same size)
+      y += 2;
+      doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
       doc.text('Item', c0, y);
       doc.text('Price', c1, y, { width: c2 - c1, align: 'center' });
       doc.text('QTY', c2, y, { width: c3 - c2, align: 'center' });
       doc.text('Amount', c3, y, { width: c4 - c3, align: 'right' });
-      y += 9;
+      y += 8;
       doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
 
-      // Items
-      doc.font('Helvetica').fontSize(5);
+      // Items (regular body)
+      doc.font(FONT_BODY).fontSize(FS_BODY);
       let itemTotal = 0, totalQty = 0;
       items.forEach(item => {
         y += 5;
@@ -146,23 +143,23 @@ router.get('/pdf', async (req, res) => {
         y += 5;
       });
 
-      // Total row
+      // Total row (bold)
       y += 1;
       doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
       y += 4;
-      doc.font('Helvetica-Bold').fontSize(5.5).fillColor('#111');
+      doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
       doc.text('Total:', c1, y, { width: c3 - c1, align: 'right' });
       doc.text(String(totalQty), c2, y, { width: c3 - c2, align: 'center' });
       doc.text('₦' + itemTotal.toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
 
-      // Footer
+      // Footer (body)
       y = doc.y + 10;
-      doc.font('Helvetica').fontSize(5).fillColor('#111');
-      doc.text('Thank you for choosing PARFCO!', M, y); y += 8;
+      doc.font(FONT_BODY).fontSize(FS_BODY).fillColor('#111');
+      doc.text('Thank you for choosing PARFCO!', M, y); y += 7;
       doc.text('For any questions about your purchase, contact', M, y); y += 6;
-      doc.font('Helvetica-Bold').fontSize(5);
+      doc.font('Helvetica-Bold').fontSize(FS_BODY);
       doc.text('us on WhatsApp at 0913 866 6675', M, y);
-      doc.font('Helvetica').fontSize(4.5);
+      doc.font(FONT_BODY).fontSize(FS_BODY);
       y += 6;
       doc.text('Customer Service Hours:', M, y); y += 6;
       doc.text('Mon–Fri, 10AM–5PM  ;  Sat, 10AM–2PM', M, y); y += 7;
