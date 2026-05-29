@@ -2,7 +2,7 @@
   <div>
     <div class="page-header">
       <div><h2>Accounts</h2><p>Manage system users and permissions.</p></div>
-      <el-button type="primary" @click="openCreate">+ New Account</el-button>
+      <el-button class="btn-dark" @click="openCreate">+ New Account</el-button>
     </div>
     <div class="page-card">
 

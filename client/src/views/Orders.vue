@@ -8,7 +8,7 @@
       <div style="display:flex;gap:8px">
         <el-button @click="doRefresh" :loading="refreshing" :disabled="refreshCooldown > 0">{{ refreshCooldown > 0 ? 'Wait '+refreshCooldown+'s' : 'Refresh' }}</el-button>
         <el-button @click="exportCSV" :disabled="!selectedRows.length">Export Excel</el-button>
-        <el-button type="primary" @click="$router.push('/orders/new')">+ New Order</el-button>
+        <el-button class="btn-dark" @click="$router.push('/orders/new')">+ New Order</el-button>
       </div>
     </div>
     <div class="page-card">
@@ -34,7 +34,7 @@
         </el-select>
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" size="small" @click="loadOrders">Search</el-button>
+        <el-button size="small" @click="loadOrders">Search</el-button>
       </el-form-item>
     </el-form>
 

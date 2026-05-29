@@ -2,7 +2,7 @@
   <div>
     <div class="page-header">
       <div><h2>Products</h2><p>Manage product catalog, pricing and availability.</p></div>
-      <el-button v-if="isAdmin" type="primary" @click="openCreate">+ New Product</el-button>
+      <el-button v-if="isAdmin" class="btn-dark" @click="openCreate">+ New Product</el-button>
     </div>
     <div class="page-card">
 
@@ -10,7 +10,7 @@
       <el-input v-model="search" placeholder="Search by code or name..." clearable style="width:300px" @keyup.enter="loadProducts">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
-      <el-button type="primary" size="small" style="margin-left:8px" @click="loadProducts">Search</el-button>
+      <el-button size="small" style="margin-left:8px" @click="loadProducts">Search</el-button>
     </div>
 
     <el-table :data="products" stripe v-loading="loading">

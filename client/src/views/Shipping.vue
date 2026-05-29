@@ -7,7 +7,7 @@
     <div style="display:flex;gap:10px;margin-bottom:12px">
       <el-input v-model="searchOrderNo" placeholder="Search order no..." clearable style="width:200px" @keyup.enter="loadList" />
       <el-input v-model="searchCustomer" placeholder="Search name / phone..." clearable style="width:220px" @keyup.enter="loadList" />
-      <el-button type="primary" size="small" @click="loadList">Search</el-button>
+      <el-button size="small" @click="loadList">Search</el-button>
     </div>
 
     <el-tabs v-model="activeTab" @tab-change="loadList">
@@ -44,7 +44,7 @@
       <el-table-column label="Actions" width="300" fixed="right">
         <template #default="{row}">
           <template v-if="activeTab === 'pending'">
-            <el-button size="small" type="primary" @click="openShipDialog(row)">Ship</el-button>
+            <el-button size="small" class="btn-dark" @click="openShipDialog(row)">Ship</el-button>
           </template>
           <template v-if="activeTab === 'in_transit'">
             <el-button size="small" type="success" @click="doAction(row, 'deliver')">Deliver</el-button>
@@ -62,7 +62,7 @@
 
     <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end" v-if="activeTab === 'pending'">
       <el-checkbox v-model="selectAll" @change="toggleAll">Select All</el-checkbox>
-      <el-button type="primary" @click="printLabels">Print Labels (PDF)</el-button>
+      <el-button class="btn-dark" @click="printLabels">Print Labels (PDF)</el-button>
     </div>
 
     <!-- Ship Dialog -->
