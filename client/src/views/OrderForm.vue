@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
@@ -118,6 +118,9 @@ async function loadOrder() {
   })
   items.value = data.items.map(i => ({ product_id: i.product_id, unit_price: i.unit_price, quantity: i.quantity, subtotal: i.subtotal }))
 }
+
+// Auto-sync actual_amount with total for new orders
+watch(totalAmount, (v) => { if (!isEdit.value) form.value.actual_amount = v })
 
 onMounted(async () => {
   const [{ data: s }, { data: ps }, { data: pr }] = await Promise.all([
