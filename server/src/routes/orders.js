@@ -38,9 +38,10 @@ router.get('/', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
-// GET /api/orders/export - CSV (must be before /:id)
+// GET /api/orders/export - XLSX with merged cells (must be before /:id)
 router.get('/export', async (req, res) => {
   try {
+    const ExcelJS = require('exceljs');
     const { date_from, date_to, streamer_id, payment_status_id, product_names, ids } = req.query;
     let where = '1=1';
     const params = [];
@@ -59,17 +60,50 @@ router.get('/export', async (req, res) => {
     const [rows] = await pool.query(
       "SELECT o.order_no,o.customer_name,o.customer_phone,o.customer_address,o.streamer_name,o.payment_status_name,o.total_amount,o.actual_amount,o.created_at,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE "+where+" ORDER BY o.created_at DESC,oi.id", params
     );
-    let csv = '﻿Order No.,Customer,Phone,Address,Streamer,Payment,Total,Actual,Date,Product Code,Product Name,Unit Price,Quantity,Subtotal\n';
-    let lastOrder = '';
+    if (rows.length === 0) return res.status(400).json({ message: 'No data' });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Orders');
+    const headers = ['Order No.','Customer','Phone','Address','Streamer','Payment','Total','Actual','Date','Product Code','Product Name','Unit Price','Quantity','Subtotal'];
+    const headerRow = ws.addRow(headers);
+    headerRow.font = { bold: true };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+    // Add data rows
     for (const r of rows) {
-      const first = r.order_no !== lastOrder;
-      lastOrder = r.order_no;
-      const o = first ? [r.order_no,r.customer_name,r.customer_phone,r.customer_address,r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,String(r.created_at||'').slice(0,10)] : ['','','','','','','','',''];
-      csv += [...o,r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')+'\n';
+      ws.addRow([r.order_no,r.customer_name,r.customer_phone,r.customer_address,r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,String(r.created_at||'').slice(0,10),r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal]);
     }
-    res.setHeader('Content-Type','text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition','attachment; filename=orders_export.csv');
-    res.send(csv);
+
+    // Merge cells by order group
+    let row = 2; // data starts at row 2 (after header)
+    while (row <= ws.rowCount) {
+      const currentOrder = ws.getCell(row, 1).value;
+      let endRow = row;
+      while (endRow < ws.rowCount && ws.getCell(endRow + 1, 1).value === currentOrder) endRow++;
+      if (endRow > row) {
+        for (let col = 1; col <= 9; col++) {
+          ws.mergeCells(row, col, endRow, col);
+        }
+      }
+      row = endRow + 1;
+    }
+
+    // Style: center align merged cells
+    ws.eachRow((r, rn) => {
+      if (rn > 1) r.eachCell((c, cn) => {
+        if (cn <= 9) c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      });
+    });
+
+    // Column widths
+    ws.columns.forEach((c, i) => {
+      c.width = i < 9 ? 16 : (i < 11 ? 20 : 12);
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition','attachment; filename=orders_export.xlsx');
+    res.send(buf);
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
