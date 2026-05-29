@@ -18,11 +18,11 @@
       <el-date-picker v-model="filters.date_from" type="date" placeholder="From" value-format="YYYY-MM-DD" size="small" style="width:135px" />
       <span style="color:var(--fg-muted)">~</span>
       <el-date-picker v-model="filters.date_to" type="date" placeholder="To" value-format="YYYY-MM-DD" size="small" style="width:135px" />
+      <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:240px">
+        <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
+      </el-select>
       <el-select v-model="filters.streamer_id" placeholder="Streamer" clearable size="small" style="width:120px">
         <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
-      </el-select>
-      <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:140px">
-        <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
       </el-select>
       <el-select v-model="filters.payment_status_id" placeholder="Payment" clearable size="small" style="width:120px">
         <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
@@ -72,7 +72,7 @@
     </el-table>
 
     <div style="margin-top:12px;text-align:right">
-      <el-pagination v-model:current-page="page" :page-size="20" :total="total" layout="total, prev, pager, next" @current-change="loadOrders" />
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10,20,50,100]" :total="total" layout="total, sizes, prev, pager, next" @size-change="loadOrders" @current-change="loadOrders" />
     </div>
 
     <!-- Detail Dialog -->
@@ -115,6 +115,7 @@ const streamers = ref([])
 const payStatuses = ref([])
 const total = ref(0)
 const page = ref(1)
+const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
 const filters = ref({ date_from: '', date_to: '', streamer_id: null, payment_status_id: null, product_names: [] })
@@ -127,7 +128,7 @@ async function loadPayStatuses() { const { data } = await api.get('/config/payme
 
 async function loadOrders() {
   loading.value = true
-  const params = { page: page.value, page_size: 20 }
+  const params = { page: page.value, page_size: pageSize.value }
   if (filters.value.date_from) params.date_from = filters.value.date_from
   if (filters.value.date_to) params.date_to = filters.value.date_to
   if (filters.value.streamer_id) params.streamer_id = filters.value.streamer_id
@@ -176,7 +177,7 @@ function exportCSV() {
 
 async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
 
-async function loadProducts() { const { data } = await api.get('/products'); products.value = data }
+async function loadProducts() { const { data } = await api.get('/products', { params: { page_size: 1000 } }); products.value = data.list }
 
 onMounted(() => { loadStreamers(); loadPayStatuses(); loadProducts(); loadOrders() })
 </script>

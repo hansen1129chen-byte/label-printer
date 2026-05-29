@@ -65,6 +65,10 @@
       <el-button class="btn-dark" @click="printLabels">Print Labels (PDF)</el-button>
     </div>
 
+    <div style="margin-top:12px;text-align:right">
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10,20,50,100]" :total="total" layout="total, sizes, prev, pager, next" @size-change="loadList" @current-change="loadList" />
+    </div>
+
     <!-- Ship Dialog -->
     <el-dialog v-model="showShipDialog" title="Confirm Shipping" width="400px">
       <el-form label-position="top">
@@ -137,6 +141,9 @@ import { getUser, getToken } from '../utils/auth'
 const user = getUser()
 const activeTab = ref('pending')
 const list = ref([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
 const loading = ref(false)
 const showShipDialog = ref(false)
 const showEdit = ref(false)
@@ -156,12 +163,13 @@ function fmtDate(d) { if (!d) return '-'; const t = new Date(d); return t.toLoca
 
 async function loadList() {
   loading.value = true
-  const p = { status: activeTab.value, page_size: 100 }
+  const p = { status: activeTab.value, page: page.value, page_size: pageSize.value }
   if (searchOrderNo.value) p.order_no = searchOrderNo.value
   if (searchCustomer.value) p.customer = searchCustomer.value
   try {
     const { data } = await api.get('/shipping', { params: p })
     list.value = data.list.map(r => ({ ...r, checked: false }))
+    total.value = data.total
   } catch (err) { ElMessage.error('Search failed') }
   finally { loading.value = false }
 }
