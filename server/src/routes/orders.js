@@ -85,28 +85,32 @@ router.get('/pdf', async (req, res) => {
       // Logo image (label.jpg)
       try {
         doc.image(logoPath, M, y, { width: IW });
-        y += 18;
+        y += 32;
       } catch (e) {
         doc.font('Times-Roman').fontSize(12).fillColor('#111');
         doc.text('PARFCO', M, y, { align: 'center', width: IW });
         y += 16;
       }
 
-      // Invoice number (bold)
-      y += 4;
-      doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
-      doc.text('INVOICE No.  ' + order.order_no, M, y); y += 6;
-
-      // Customer info (regular, body)
+      // Body font
       const FONT_BODY = 'Helvetica';
-      const FS_BODY = 4.5;
-      doc.font(FONT_BODY).fontSize(FS_BODY);
+      const FS_BODY = 4;
+      const LH = 5; // line height
+
+      // Invoice no (right) + Name phone (left) on same line
+      y += 4;
+      doc.font('Helvetica-Bold').fontSize(FS_BODY).fillColor('#111');
       const nameLine = (order.customer_name ? order.customer_name.toUpperCase() : '') +
         (order.customer_name && order.customer_phone ? '    ' + order.customer_phone : (order.customer_phone || ''));
-      if (nameLine) { doc.text(nameLine, M, y); y += 6; }
+      if (nameLine) doc.text(nameLine, M, y, { width: IW - 60, continued: false });
+      doc.text('INVOICE No. ' + order.order_no, M, y, { width: IW, align: 'right' });
+      y += LH + 2;
+
+      // Address
+      doc.font(FONT_BODY).fontSize(FS_BODY);
       if (order.customer_address) {
-        doc.text(order.customer_address, M, y, { width: IW }); y = doc.y + 1;
-      }
+        doc.text(order.customer_address, M, y, { width: IW }); y += LH + 1;
+      } else { y += 2; }
 
       // Table
       y += 1;
@@ -121,7 +125,7 @@ router.get('/pdf', async (req, res) => {
 
       // Table header (bold, same size)
       y += 2;
-      doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
+      doc.font('Helvetica-Bold').fontSize(FS_BODY).fillColor('#111');
       doc.text('Item', c0, y);
       doc.text('Price', c1, y, { width: c2 - c1 - 2 });
       doc.text('QTY', c2, y, { width: c3 - c2 - 2, align: 'right' });
@@ -147,7 +151,7 @@ router.get('/pdf', async (req, res) => {
       y += 1;
       doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.8).stroke('#000');
       y += 4;
-      doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
+      doc.font('Helvetica-Bold').fontSize(FS_BODY).fillColor('#111');
       doc.text('Total:', c1, y, { width: c2 - c1 - 2 });
       doc.text(String(totalQty), c2, y, { width: c3 - c2 - 2, align: 'right' });
       doc.text('₦' + itemTotal.toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
