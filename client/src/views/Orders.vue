@@ -15,7 +15,7 @@
 
     <!-- Filters -->
     <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
-      <el-date-picker v-model="filters.dates" type="daterange" range-separator="-" start-placeholder="From" end-placeholder="To" value-format="YYYY-MM-DD" size="small" style="width:220px" />
+      <input type="date" v-model="filters.date_from" class="date-input" /> <span style="color:var(--fg-muted)">~</span> <input type="date" v-model="filters.date_to" class="date-input" />
       <el-select v-model="filters.streamer_id" placeholder="Streamer" clearable size="small" style="width:120px">
         <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
       </el-select>
@@ -115,7 +115,7 @@ const total = ref(0)
 const page = ref(1)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
-const filters = ref({ dates: null, streamer_id: null, payment_status_id: null, product_names: [] })
+const filters = ref({ date_from: '', date_to: '', streamer_id: null, payment_status_id: null, product_names: [] })
 const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)
@@ -126,7 +126,8 @@ async function loadPayStatuses() { const { data } = await api.get('/config/payme
 async function loadOrders() {
   loading.value = true
   const params = { page: page.value, page_size: 20 }
-  if (filters.value.dates) { params.date_from = filters.value.dates[0]; params.date_to = filters.value.dates[1] }
+  if (filters.value.date_from) params.date_from = filters.value.date_from
+  if (filters.value.date_to) params.date_to = filters.value.date_to
   if (filters.value.streamer_id) params.streamer_id = filters.value.streamer_id
   if (filters.value.payment_status_id) params.payment_status_id = filters.value.payment_status_id
   if (filters.value.product_names && filters.value.product_names.length > 0) params.product_names = filters.value.product_names.join(',')
@@ -163,7 +164,8 @@ function exportCSV() {
   if (!selectedRows.value.length) return
   const ids = selectedRows.value.map(r => r.id).join(',')
   const params = new URLSearchParams()
-  if (filters.value.dates) { params.set('date_from', filters.value.dates[0]); params.set('date_to', filters.value.dates[1]) }
+  if (filters.value.date_from) params.set('date_from', filters.value.date_from)
+  if (filters.value.date_to) params.set('date_to', filters.value.date_to)
   if (filters.value.product_names?.length) params.set('product_names', filters.value.product_names.join(','))
   params.set('ids', ids)
   params.set('token', getToken())
@@ -176,3 +178,7 @@ async function loadProducts() { const { data } = await api.get('/products'); pro
 
 onMounted(() => { loadStreamers(); loadPayStatuses(); loadProducts(); loadOrders() })
 </script>
+
+<style scoped>
+.date-input { width:130px; }
+</style>
