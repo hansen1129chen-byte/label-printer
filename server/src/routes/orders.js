@@ -62,9 +62,10 @@ router.get('/pdf', async (req, res) => {
       itemsByOrder[item.order_id].push(item);
     });
 
-    const W = 142, H = 227;
-    const M = 8;
-    const doc = new PDFDocument({ size: [W, H], margin: M, bufferPages: true });
+    const W = 142, H = 227; // 50mm x 80mm
+    const M = 10;
+    const IW = W - M * 2; // inner width 122pt
+    const doc = new PDFDocument({ size: [W, H], margin: 0 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=labels.pdf');
     doc.pipe(res);
@@ -75,73 +76,95 @@ router.get('/pdf', async (req, res) => {
       if (oi > 0) doc.addPage();
       const items = itemsByOrder[order.id] || [];
 
-      // Logo (header image)
-      try { doc.image(logoPath, (W - 60) / 2, M, { width: 60 }); } catch (e) { /* fallback to text */ }
-      let y = M + 22;
+      // Background white (whole page)
+      doc.rect(0, 0, W, H).fill('#fff');
 
-      // Tagline
-      doc.font('Courier').fontSize(5).fillColor('#333');
-      doc.text('Your scent   One tap away', M, y, { align: 'center', width: W - M * 2 });
-      y += 10;
+      let y = M;
 
-      // Invoice no + customer
-      doc.font('Courier').fontSize(6).fillColor('#111');
-      doc.text('INVOICE No.  ' + order.order_no, M, y);
-      y += 10;
-      doc.fontSize(5.5).fillColor('#555');
-      doc.text(order.customer_name, M, y);
-      doc.text(order.customer_phone, { align: 'right' });
-      y += 8;
-      doc.fontSize(5).text(order.customer_address || '', { width: W - M * 2 });
-
-      // Table
-      y = doc.y + 8;
-      doc.moveTo(M, y).lineTo(W - M, y).stroke('#111');
-      y += 4;
-
-      // Table header
-      const cols = [M, M + 50, M + 72, M + 88];
-      doc.font('Courier-Bold').fontSize(5.5).fillColor('#111');
-      doc.text('Item', cols[0], y);
-      doc.text('Price', cols[1], y);
-      doc.text('QTY', cols[2], y);
-      doc.text('Amount', cols[3], y, { width: W - cols[3] - M, align: 'right' });
-      y += 9;
-      doc.moveTo(M, y).lineTo(W - M, y).stroke('#111');
-      y += 4;
-
-      // Items
-      doc.font('Courier').fontSize(5).fillColor('#111');
-      let itemTotal = 0;
-      items.forEach(item => {
-        doc.text(item.product_name, cols[0], y, { width: cols[1] - cols[0] - 4 });
-        doc.text('₦' + Number(item.unit_price).toLocaleString(), cols[1], y);
-        doc.text(String(item.quantity), cols[2], y, { align: 'center' });
-        doc.text('₦' + Number(item.subtotal).toLocaleString(), cols[3], y, { width: W - cols[3] - M, align: 'right' });
-        itemTotal += Number(item.subtotal);
+      // Logo image (replaces PARFCO text + slogan)
+      try {
+        doc.image(logoPath, (W - 50) / 2, y, { width: 50 });
+        y += 24;
+      } catch (e) {
+        doc.font('Times-Roman').fontSize(16).fillColor('#111');
+        doc.text('PARFCO', M, y, { align: 'center', width: IW });
+        y += 22;
+        doc.font('Helvetica').fontSize(6);
+        doc.text('Your scent   One tap away', M, y, { align: 'center', width: IW });
         y += 10;
+      }
+
+      // Invoice number: 13px ≈ 6pt, mt-8 ≈ 10pt gap
+      y += 10;
+      doc.font('Helvetica').fontSize(6).fillColor('#111');
+      doc.text('INVOICE No.  ' + order.order_no, M, y); y += 8;
+
+      // Customer info: 13px ≈ 6pt, mt-4 ≈ 6pt gap
+      doc.fontSize(6);
+      if (order.customer_name) { doc.text(order.customer_name.toUpperCase(), M, y); y += 8; }
+      if (order.customer_phone) { doc.text(order.customer_phone, M, y); y += 8; }
+      if (order.customer_address) {
+        doc.fontSize(5.5);
+        doc.text(order.customer_address, M, y, { width: IW }); y = doc.y + 4;
+      }
+
+      // Table: mt-4, border-top black 1px
+      y += 4;
+      doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.8).stroke('#000'); doc.lineWidth(0.5);
+
+      // Column layout (from CSS grid: 1.4fr 1fr 0.6fr 1fr = 4.0fr total)
+      const totalFr = 4.0;
+      const c0 = M;
+      const c1 = M + (1.4 / totalFr) * IW;  // Item
+      const c2 = c1 + (1.0 / totalFr) * IW; // Price
+      const c3 = c2 + (0.6 / totalFr) * IW; // QTY
+      const c4 = W - M;                      // Amount (right edge)
+
+      // Table header: 15px ≈ 7pt, py-3, border-b black
+      y += 4;
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#111');
+      doc.text('Item', c0, y);
+      doc.text('Price', c1, y, { width: c2 - c1, align: 'center' });
+      doc.text('QTY', c2, y, { width: c3 - c2, align: 'center' });
+      doc.text('Amount', c3, y, { width: c4 - c3, align: 'right' });
+      y += 12;
+      doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
+
+      // Items: 14px ≈ 6pt, py-2.5
+      doc.font('Helvetica').fontSize(6);
+      let itemTotal = 0, totalQty = 0;
+      items.forEach(item => {
+        y += 6;
+        doc.text(item.product_name, c0, y, { width: c1 - c0 - 4 });
+        doc.text('₦' + Number(item.unit_price).toLocaleString(), c1, y, { width: c2 - c1, align: 'center' });
+        doc.text(String(item.quantity), c2, y, { width: c3 - c2, align: 'center' });
+        doc.text('₦' + Number(item.subtotal).toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
+        itemTotal += Number(item.subtotal);
+        totalQty += item.quantity;
+        y += 6;
       });
 
-      // Total row
+      // Total row: border-t, py-3, 14px ≈ 6pt
       y += 2;
-      doc.moveTo(M, y).lineTo(W - M, y).stroke('#111');
-      y += 4;
-      doc.font('Courier-Bold').fontSize(6);
-      doc.text('Total:', cols[1], y);
-      doc.text(String(items.length), cols[2], y, { align: 'center' });
-      doc.text('₦' + itemTotal.toLocaleString(), cols[3], y, { width: W - cols[3] - M, align: 'right' });
+      doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
+      y += 6;
+      doc.font('Helvetica-Bold').fontSize(6).fillColor('#111');
+      doc.text('Total:', c1, y, { width: c3 - c1, align: 'right' });
+      doc.text(String(totalQty), c2, y, { width: c3 - c2, align: 'center' });
+      doc.text('₦' + itemTotal.toLocaleString(), c3, y, { width: c4 - c3, align: 'right' });
 
-      // Footer
-      y = H - 55;
-      doc.font('Courier').fontSize(5).fillColor('#555');
-      doc.text('Thank you for choosing PARFCO!', M, y, { width: W - M * 2 });
-      y += 10;
-      doc.fontSize(4.5).fillColor('#999');
-      doc.text('Questions? WhatsApp 0707 093 0000', M, y, { width: W - M * 2 });
-      y += 7;
-      doc.text('Mon-Fri 10AM-5PM | Sat 10AM-2PM', M, y, { width: W - M * 2 });
-      y += 7;
-      doc.text('Enjoy your fragrance!', M, y, { width: W - M * 2 });
+      // Footer: mt-6, 14px ≈ 6pt, leading-relaxed
+      y = doc.y + 16;
+      doc.font('Helvetica').fontSize(6).fillColor('#111');
+      doc.text('Thank you for choosing PARFCO!', M, y); y += 12;
+      doc.text('For any questions about your purchase, contact', M, y); y += 8;
+      doc.font('Helvetica-Bold').fontSize(6);
+      doc.text('us on WhatsApp at 0707 093 0000', M, y);
+      doc.font('Helvetica').fontSize(5.5);
+      y += 8;
+      doc.text('Customer Service Hours:', M, y); y += 8;
+      doc.text('Mon–Fri, 10AM–5PM  ;  Sat, 10AM–2PM', M, y); y += 10;
+      doc.text('Enjoy your fragrance!', M, y);
     });
 
     doc.end();
