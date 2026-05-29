@@ -5,6 +5,12 @@
       <el-button v-if="isAdmin" type="primary" @click="openCreate">+ New Product</el-button>
     </div>
 
+    <div style="margin-bottom:12px">
+      <el-input v-model="search" placeholder="Search by code or name..." clearable style="width:300px" @input="onSearch">
+        <template #prefix><el-icon><Search /></el-icon></template>
+      </el-input>
+    </div>
+
     <el-table :data="products" stripe v-loading="loading">
       <el-table-column prop="sort_order" label="#" width="50" />
       <el-table-column prop="code" label="Code" width="120" />
@@ -56,13 +62,18 @@ const products = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
+const search = ref('')
+let searchTimer = null
+function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(loadProducts, 300) }
 const showDialog = ref(false)
 const editing = ref(null)
 const form = ref({ sort_order: 0, code: '', name: '', price: 0, status: 'active' })
 
 async function loadProducts() {
   loading.value = true
-  const { data } = await api.get('/products', { params: { page: page.value, page_size: pageSize.value } })
+  const params = { page: page.value, page_size: pageSize.value }
+  if (search.value) params.search = search.value
+  const { data } = await api.get('/products', { params })
   products.value = data.list; total.value = data.total; loading.value = false
 }
 

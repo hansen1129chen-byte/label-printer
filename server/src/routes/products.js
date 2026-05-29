@@ -17,11 +17,14 @@ router.post('/reorder', adminOnly, async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, page_size = 100 } = req.query;
-    const [countRows] = await pool.query('SELECT COUNT(*) AS total FROM products');
+    const { page = 1, page_size = 100, search } = req.query;
+    let where = '1=1';
+    const params = [];
+    if (search) { where += ' AND (code LIKE ? OR name LIKE ?)'; params.push('%'+search+'%', '%'+search+'%'); }
+    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM products WHERE ${where}`, params);
     const ps = Math.min(parseInt(page_size), 100);
     const offset = (parseInt(page) - 1) * ps;
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY sort_order, id LIMIT ? OFFSET ?', [ps, offset]);
+    const [rows] = await pool.query(`SELECT * FROM products WHERE ${where} ORDER BY sort_order, id LIMIT ? OFFSET ?`, [...params, ps, offset]);
     res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { res.status(500).json({ message: 'Server error' }); }
 });
