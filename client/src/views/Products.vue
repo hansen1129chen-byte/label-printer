@@ -77,18 +77,30 @@ async function handleSave() {
 
 async function handleDelete(id) { await api.delete(`/products/${id}`); loadProducts() }
 
-function moveUp(idx) {
-  const arr = products.value.slice()
-  ;[arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]
-  const order = arr.map(p => p.id)
-  api.post('/products/reorder', { order }).then(loadProducts)
+async function reorderAll(arr) {
+  // Fetch ALL product IDs for complete reorder
+  const { data } = await api.get('/products', { params: { page_size: 10000 } })
+  const all = data.list.map(p => p.id)
+  // Swap in full array
+  const newOrder = all.slice()
+  for (let i = 0; i < arr.length; i++) {
+    const idx = newOrder.indexOf(arr[i].id)
+    if (idx >= 0) newOrder[idx] = arr[i].id
+  }
+  await api.post('/products/reorder', { order: newOrder })
+  loadProducts()
 }
 
-function moveDown(idx) {
+async function moveUp(idx) {
+  const arr = products.value.slice()
+  ;[arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]
+  await reorderAll(arr)
+}
+
+async function moveDown(idx) {
   const arr = products.value.slice()
   ;[arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]
-  const order = arr.map(p => p.id)
-  api.post('/products/reorder', { order }).then(loadProducts)
+  await reorderAll(arr)
 }
 
 onMounted(loadProducts)
