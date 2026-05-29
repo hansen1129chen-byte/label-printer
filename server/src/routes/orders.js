@@ -82,16 +82,17 @@ router.get('/pdf', async (req, res) => {
       let y = M;
 
       // Logo image (replaces PARFCO text + slogan)
+      // Logo image (PARFCO + tagline)
       try {
-        doc.image(logoPath, (W - 50) / 2, y, { width: 50 });
-        y += 24;
+        doc.image(logoPath, (W - 66) / 2, y, { width: 66 });
+        y += 30;
       } catch (e) {
-        doc.font('Times-Roman').fontSize(16).fillColor('#111');
+        doc.font('Times-Roman').fontSize(14).fillColor('#111');
         doc.text('PARFCO', M, y, { align: 'center', width: IW });
-        y += 22;
-        doc.font('Helvetica').fontSize(6);
+        y += 18;
+        doc.font('Helvetica').fontSize(5);
         doc.text('Your scent   One tap away', M, y, { align: 'center', width: IW });
-        y += 10;
+        y += 8;
       }
 
       // Invoice number
