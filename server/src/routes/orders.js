@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
     if (product_names) {
       const names = product_names.split(',').filter(Boolean);
       if (names.length > 0) {
-        where += ' AND o.id IN (SELECT DISTINCT oi.order_id FROM order_items oi WHERE ' + names.map(() => 'oi.product_name LIKE ?').join(' OR ') + ')';
+        where += ' AND ' + names.map(() => 'o.id IN (SELECT oi.order_id FROM order_items oi WHERE oi.product_name LIKE ?)').join(' AND ');
         names.forEach(n => params.push('%' + n.trim() + '%'));
       }
     }
