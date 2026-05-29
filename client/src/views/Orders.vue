@@ -110,7 +110,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../api'
-import { getUser } from '../utils/auth'
+import { getUser, getToken } from '../utils/auth'
 
 const loading = ref(false)
 const orders = ref([])
@@ -171,6 +171,7 @@ function exportCSV() {
   if (filters.value.dates) { params.set('date_from', filters.value.dates[0]); params.set('date_to', filters.value.dates[1]) }
   if (filters.value.product_names?.length) params.set('product_names', filters.value.product_names.join(','))
   params.set('ids', ids)
+  params.set('token', getToken())
   window.open('/api/orders/export?' + params.toString(), '_blank')
 }
 
