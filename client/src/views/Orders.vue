@@ -14,29 +14,19 @@
     <div class="page-card">
 
     <!-- Filters -->
-    <el-form :inline="true" style="margin-bottom:12px">
-      <el-form-item label="Date">
-        <el-date-picker v-model="filters.dates" type="daterange" range-separator="-" start-placeholder="From" end-placeholder="To" value-format="YYYY-MM-DD" size="small" />
-      </el-form-item>
-      <el-form-item label="Streamer">
-        <el-select v-model="filters.streamer_id" placeholder="All" clearable size="small" style="width:130px">
-          <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Product">
-        <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:150px">
-          <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Payment">
-        <el-select v-model="filters.payment_status_id" placeholder="All" clearable size="small" style="width:130px">
-          <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
-      </el-form-item>
-    </el-form>
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+      <el-date-picker v-model="filters.dates" type="daterange" range-separator="-" start-placeholder="From" end-placeholder="To" value-format="YYYY-MM-DD" size="small" style="width:220px" />
+      <el-select v-model="filters.streamer_id" placeholder="Streamer" clearable size="small" style="width:120px">
+        <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
+      </el-select>
+      <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:140px">
+        <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
+      </el-select>
+      <el-select v-model="filters.payment_status_id" placeholder="Payment" clearable size="small" style="width:120px">
+        <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
+      </el-select>
+      <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
+    </div>
 
     <!-- Table -->
     <el-table :data="orders" stripe v-loading="loading" style="width:100%" @selection-change="val => selectedRows = val">
