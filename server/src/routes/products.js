@@ -47,7 +47,7 @@ router.put('/:id', adminOnly, async (req, res) => {
     const [dup] = await pool.query('SELECT id FROM products WHERE (code=? OR name=?) AND id!=?', [code, name, selfId]);
     if (dup.length > 0) {
       const conflictIds = dup.map(d => d.id).join(',');
-      return res.status(400).json({ message: `Product code or name already exists (conflict IDs: ${conflictIds}, self: ${selfId})` });
+      return res.status(400).json({ message: 'Product code or name already exists' });
     }
     await pool.query('UPDATE products SET code=?, name=?, price=?, sort_order=?, status=? WHERE id=?',
       [code, name, price, sort_order, status, req.params.id]);
