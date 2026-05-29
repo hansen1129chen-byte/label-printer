@@ -66,7 +66,7 @@ const deliveryStaff = ref([])
 const showDialog = ref(false)
 const editType = ref('')
 const editTarget = ref(null)
-const editForm = ref({ name: '', commission_rate: 10, color: '#409eff' })
+const editForm = ref({ name: '', commission_rate: 1, color: '#409eff' })
 
 const editTitle = ref('')
 
@@ -78,7 +78,7 @@ async function loadAll() {
 function openAdd(type) {
   editType.value = type; editTarget.value = null
   editTitle.value = 'New ' + type.replace('_', ' ')
-  editForm.value = { name: '', commission_rate: 10, color: '#409eff' }
+  editForm.value = { name: '', commission_rate: 1, color: '#409eff' }
   showDialog.value = true
 }
 

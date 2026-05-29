@@ -139,12 +139,12 @@ router.post('/', async (req, res) => {
       orderItems.push({ product_id:p.id, product_code:p.code, product_name:p.name, unit_price:p.price, quantity:qty, subtotal });
     }
     const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),totalAmount) : totalAmount;
-    let sn='', psn='';
-    if (streamer_id) { const [sr]=await conn.query('SELECT name FROM streamers WHERE id=?',[streamer_id]); if (sr.length>0) sn=sr[0].name; }
+    let sn='', psn='', cr=0;
+    if (streamer_id) { const [sr]=await conn.query('SELECT name,commission_rate FROM streamers WHERE id=?',[streamer_id]); if (sr.length>0) { sn=sr[0].name; cr=sr[0].commission_rate; } }
     if (payment_status_id) { const [ps]=await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]); if (ps.length>0) psn=ps[0].name; }
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_address,streamer_id,streamer_name,payment_status_id,payment_status_name,total_amount,actual_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_address||'',streamer_id||null,sn,payment_status_id||null,psn,totalAmount,actual]
+      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_address,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_address||'',streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual]
     );
     for (const oi of orderItems) {
       await conn.query('INSERT INTO order_items (order_id,product_id,product_code,product_name,unit_price,quantity,subtotal) VALUES (?,?,?,?,?,?,?)',

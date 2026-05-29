@@ -61,6 +61,7 @@ CREATE TABLE orders (
     customer_address VARCHAR(500) DEFAULT '',
     streamer_id BIGINT DEFAULT NULL,
     streamer_name VARCHAR(100) DEFAULT '',
+    commission_rate DECIMAL(5,2) DEFAULT 0,
     payment_status_id BIGINT DEFAULT NULL,
     payment_status_name VARCHAR(50) DEFAULT '',
     total_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -102,7 +103,7 @@ CREATE TABLE shipping_records (
 ) ENGINE=InnoDB;
 
 -- Default seed data
-INSERT INTO streamers (name, commission_rate) VALUES ('NIFEMI', 10.00), ('JESSICA', 10.00), ('VINCENT', 10.00);
+INSERT INTO streamers (name, commission_rate) VALUES ('NIFEMI', 1.00), ('JESSICA', 1.00), ('VINCENT', 1.00);
 INSERT INTO payment_statuses (name, color) VALUES ('PAID', '#22c55e'), ('NOT PAID', '#ef4444');
 INSERT INTO delivery_staff (name) VALUES ('John'), ('Mike');
 INSERT INTO products (sort_order, code, name, price) VALUES

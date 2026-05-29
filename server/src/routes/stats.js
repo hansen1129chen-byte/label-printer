@@ -34,7 +34,7 @@ router.get('/commission', async (req, res) => {
       `SELECT s.id, s.name, s.commission_rate,
         COUNT(o.id) AS order_count,
         COALESCE(SUM(o.total_amount), 0) AS total_sales,
-        COALESCE(SUM(o.total_amount) * s.commission_rate / 100, 0) AS commission
+        COALESCE(SUM(o.total_amount * COALESCE(NULLIF(o.commission_rate, 0), s.commission_rate) / 100), 0) AS commission
        FROM streamers s
        LEFT JOIN orders o ON o.streamer_id = s.id AND ${where}
        GROUP BY s.id ORDER BY total_sales DESC`, params
