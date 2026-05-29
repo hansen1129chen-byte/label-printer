@@ -6,9 +6,10 @@
     </div>
 
     <div style="margin-bottom:12px">
-      <el-input v-model="search" placeholder="Search by code or name..." clearable style="width:300px" @input="onSearch">
+      <el-input v-model="search" placeholder="Search by code or name..." clearable style="width:300px" @keyup.enter="loadProducts">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
+      <el-button type="primary" size="small" style="margin-left:8px" @click="loadProducts">Search</el-button>
     </div>
 
     <el-table :data="products" stripe v-loading="loading">
@@ -63,8 +64,6 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
 const search = ref('')
-let searchTimer = null
-function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(loadProducts, 300) }
 const showDialog = ref(false)
 const editing = ref(null)
 const form = ref({ sort_order: 0, code: '', name: '', price: 0, status: 'active' })

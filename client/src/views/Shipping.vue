@@ -3,8 +3,9 @@
     <h2 style="margin-bottom:16px">Shipping Management</h2>
 
     <div style="display:flex;gap:10px;margin-bottom:12px">
-      <el-input v-model="searchOrderNo" placeholder="Search order no..." clearable style="width:200px" @input="onSearch" />
-      <el-input v-model="searchCustomer" placeholder="Search name / phone..." clearable style="width:220px" @input="onSearch" />
+      <el-input v-model="searchOrderNo" placeholder="Search order no..." clearable style="width:200px" @keyup.enter="loadList" />
+      <el-input v-model="searchCustomer" placeholder="Search name / phone..." clearable style="width:220px" @keyup.enter="loadList" />
+      <el-button type="primary" size="small" @click="loadList">Search</el-button>
     </div>
 
     <el-tabs v-model="activeTab" @tab-change="loadList">
@@ -138,8 +139,6 @@ const deliveryStaff = ref([])
 const selectAll = ref(false)
 const searchOrderNo = ref('')
 const searchCustomer = ref('')
-let searchTimer = null
-function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(loadList, 300) }
 
 function fmtDate(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-GB') + ' ' + t.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
 
