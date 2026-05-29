@@ -33,7 +33,8 @@ router.get('/', async (req, res) => {
     const total = countRows[0].total;
 
     const [rows] = await pool.query(
-      `SELECT o.*, sr.status AS shipping_status, sr.shipping_code
+      `SELECT o.*, sr.status AS shipping_status, sr.shipping_code,
+        (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
        WHERE ${where} ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
