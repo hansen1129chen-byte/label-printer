@@ -1,16 +1,17 @@
 <template>
-  <div class="page-card">
-    <h2 style="margin-bottom:16px">{{ isEdit ? 'Edit Order' : 'New Order' }}</h2>
+  <div>
+    <div class="page-header"><div><h2>{{ isEdit ? 'Edit Order' : 'New Order' }}</h2><p>Fill in customer and product details below.</p></div></div>
+    <div class="page-card">
 
     <el-form :model="form" label-position="top" ref="formRef">
       <el-row :gutter="16">
-        <el-col :span="8"><el-form-item label="Customer Name" required><el-input v-model="form.customer_name" /></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Customer Name" required><el-input v-model="form.customer_name" placeholder="Customer full name" /></el-form-item></el-col>
         <el-col :span="4"><el-form-item label="Gender" required><el-select v-model="form.customer_gender"><el-option label="Male" value="male" /><el-option label="Female" value="female" /></el-select></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" /></el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" placeholder="Phone number" /></el-form-item></el-col>
         <el-col :span="6"><el-form-item label="Streamer" required><el-select v-model="form.streamer_id" placeholder="Select"><el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item></el-col>
       </el-row>
       <el-row :gutter="16">
-        <el-col :span="12"><el-form-item label="Address" required><el-input v-model="form.customer_address" type="textarea" :rows="2" /></el-form-item></el-col>
+        <el-col :span="12"><el-form-item label="Address" required><el-input v-model="form.customer_address" type="textarea" :rows="2" placeholder="Delivery address" /></el-form-item></el-col>
         <el-col :span="6"><el-form-item label="Payment Status" required><el-select v-model="form.payment_status_id" placeholder="Select"><el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" /></el-select></el-form-item></el-col>
       </el-row>
 
@@ -50,6 +51,7 @@
         <el-button @click="$router.back()">Cancel</el-button>
       </div>
     </el-form>
+  </div>
   </div>
 </template>
 

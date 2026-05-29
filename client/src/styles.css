@@ -81,11 +81,11 @@ input:focus, select:focus, textarea:focus { border-color:#9ca3af; box-shadow:0 0
 .el-menu-item.is-active { background:var(--accent) !important; color:var(--fg) !important; border:1px solid var(--border); }
 
 /* ── Primary Button Override (Dark) ── */
-.el-button--primary {
-  --el-button-bg-color: #1a1a1a; --el-button-border-color: #1a1a1a;
-  --el-button-hover-bg-color: #333; --el-button-hover-border-color: #333;
-  --el-button-active-bg-color: #000;
+.el-button--primary, .el-button--primary:focus, .el-button--primary:hover {
+  background-color:#1a1a1a !important; border-color:#1a1a1a !important; color:#fff !important;
 }
+.el-button--primary:hover { background-color:#333 !important; border-color:#333 !important; }
+.el-button--primary:active { background-color:#000 !important; }
 
 /* ── Page Header ── */
 .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }

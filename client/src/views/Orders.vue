@@ -24,7 +24,7 @@
         </el-select>
       </el-form-item>
       <el-form-item label="Product">
-        <el-select v-model="filters.product_names" placeholder="All" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:200px">
+        <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:150px">
           <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
         </el-select>
       </el-form-item>
