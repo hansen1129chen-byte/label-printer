@@ -15,7 +15,9 @@
 
     <!-- Filters -->
     <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
-      <input type="date" v-model="filters.date_from" class="date-input" /> <span style="color:var(--fg-muted)">~</span> <input type="date" v-model="filters.date_to" class="date-input" />
+      <el-date-picker v-model="filters.date_from" type="date" placeholder="From" value-format="YYYY-MM-DD" size="small" style="width:135px" />
+      <span style="color:var(--fg-muted)">~</span>
+      <el-date-picker v-model="filters.date_to" type="date" placeholder="To" value-format="YYYY-MM-DD" size="small" style="width:135px" />
       <el-select v-model="filters.streamer_id" placeholder="Streamer" clearable size="small" style="width:120px">
         <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
       </el-select>
@@ -179,6 +181,3 @@ async function loadProducts() { const { data } = await api.get('/products'); pro
 onMounted(() => { loadStreamers(); loadPayStatuses(); loadProducts(); loadOrders() })
 </script>
 
-<style scoped>
-.date-input { width:130px; }
-</style>
