@@ -6,9 +6,7 @@ router.use(authMiddleware);
 
 function genOrderNo(date) {
   const d = date || new Date();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `PF${m}${day}`;
+  return `PF${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // GET /api/orders
@@ -28,29 +26,25 @@ router.get('/', async (req, res) => {
         names.forEach(n => params.push('%' + n.trim() + '%'));
       }
     }
-
     const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o WHERE ${where}`, params);
-    const total = countRows[0].total;
-
     const [rows] = await pool.query(
       `SELECT o.*, sr.status AS shipping_status, sr.shipping_code,
         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
-       FROM orders o
-       LEFT JOIN shipping_records sr ON sr.order_id = o.id
+       FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id
        WHERE ${where} ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
+      [...params, parseInt(page_size), (parseInt(page)-1)*parseInt(page_size)]
     );
-    res.json({ list: rows, total, page: parseInt(page) });
+    res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
-// GET /api/orders/export - export to CSV (must be before /:id)
+// GET /api/orders/export - CSV (must be before /:id)
 router.get('/export', async (req, res) => {
   try {
     const { date_from, date_to, streamer_id, payment_status_id, product_names, ids } = req.query;
     let where = '1=1';
     const params = [];
-    if (ids) { where += ' AND o.id IN (' + ids.split(',').map(() => '?').join(',') + ')'; ids.split(',').forEach(id => params.push(id)); }
+    if (ids) { where += ' AND o.id IN (' + ids.split(',').map(()=>'?').join(',') + ')'; ids.split(',').forEach(id=>params.push(id)); }
     if (date_from) { where += ' AND o.created_at >= ?'; params.push(date_from); }
     if (date_to) { where += ' AND o.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
     if (streamer_id) { where += ' AND o.streamer_id = ?'; params.push(streamer_id); }
@@ -63,15 +57,18 @@ router.get('/export', async (req, res) => {
       }
     }
     const [rows] = await pool.query(
-      "SELECT o.order_no, o.customer_name, o.customer_phone, o.customer_address, o.streamer_name, o.payment_status_name, o.total_amount, o.actual_amount, o.created_at, oi.product_code, oi.product_name, oi.unit_price, oi.quantity, oi.subtotal FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE " + where + " ORDER BY o.created_at DESC, oi.id", params
+      "SELECT o.order_no,o.customer_name,o.customer_phone,o.customer_address,o.streamer_name,o.payment_status_name,o.total_amount,o.actual_amount,o.created_at,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE "+where+" ORDER BY o.created_at DESC,oi.id", params
     );
-    const BOM = '﻿';
-    let csv = BOM + 'Order No.,Customer,Phone,Address,Streamer,Payment,Total,Actual,Date,Product Code,Product Name,Unit Price,Quantity,Subtotal\n';
+    let csv = '﻿Order No.,Customer,Phone,Address,Streamer,Payment,Total,Actual,Date,Product Code,Product Name,Unit Price,Quantity,Subtotal\n';
+    let lastOrder = '';
     for (const r of rows) {
-      csv += [r.order_no, r.customer_name, r.customer_phone, r.customer_address, r.streamer_name, r.payment_status_name, r.total_amount, r.actual_amount, r.created_at?.slice(0, 10), r.product_code, r.product_name, r.unit_price, r.quantity, r.subtotal].map(v => '"' + String(v || '').replace(/"/g, '""') + '"').join(',') + '\n';
+      const first = r.order_no !== lastOrder;
+      lastOrder = r.order_no;
+      const o = first ? [r.order_no,r.customer_name,r.customer_phone,r.customer_address,r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,String(r.created_at||'').slice(0,10)] : ['','','','','','','','',''];
+      csv += [...o,r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal].map(v=>'"'+(v||'').replace(/"/g,'""')+'"').join(',')+'\n';
     }
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename=orders_export.csv');
+    res.setHeader('Content-Type','text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition','attachment; filename=orders_export.csv');
     res.send(csv);
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
@@ -79,10 +76,9 @@ router.get('/export', async (req, res) => {
 // GET /api/orders/:id
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT o.* FROM orders o WHERE o.id = ?`, [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
-    const [items] = await pool.query('SELECT * FROM order_items WHERE order_id = ?', [rows[0].id]);
+    const [rows] = await pool.query('SELECT o.* FROM orders o WHERE o.id=?',[req.params.id]);
+    if (rows.length===0) return res.status(404).json({ message: 'Not found' });
+    const [items] = await pool.query('SELECT * FROM order_items WHERE order_id=?',[rows[0].id]);
     rows[0].items = items;
     res.json(rows[0]);
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
@@ -93,59 +89,37 @@ router.post('/', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { customer_name, customer_gender, customer_phone, customer_address, streamer_id, payment_status_id, actual_amount, items } = req.body;
-    if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'Select at least one product' });
-
-    // Generate order number
+    if (!items || !Array.isArray(items) || items.length===0) return res.status(400).json({ message: 'Select at least one product' });
     const prefix = genOrderNo();
-    const [lastRows] = await conn.query("SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY order_no DESC LIMIT 1", [prefix + '%']);
+    const [lastRows] = await conn.query("SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY order_no DESC LIMIT 1",[prefix+'%']);
     let seq = 1;
-    if (lastRows.length > 0) {
-      const lastSeq = parseInt(lastRows[0].order_no.slice(-3));
-      if (!isNaN(lastSeq)) seq = lastSeq + 1;
-    }
-    const orderNo = prefix + String(seq).padStart(3, '0');
-
+    if (lastRows.length>0) { const ls = parseInt(lastRows[0].order_no.slice(-3)); if (!isNaN(ls)) seq = ls+1; }
+    const orderNo = prefix + String(seq).padStart(3,'0');
     let totalAmount = 0;
     const orderItems = [];
     for (const item of items) {
-      const [prodRows] = await conn.query('SELECT * FROM products WHERE id = ?', [item.product_id]);
-      if (prodRows.length === 0) { conn.release(); return res.status(400).json({ message: `Product not found` }); }
-      const p = prodRows[0];
-      const qty = parseInt(item.quantity) || 1;
-      const subtotal = parseFloat(p.price) * qty;
-      totalAmount += subtotal;
-      orderItems.push({ product_id: p.id, product_code: p.code, product_name: p.name, unit_price: p.price, quantity: qty, subtotal });
+      const [prodRows] = await conn.query('SELECT * FROM products WHERE id=?',[item.product_id]);
+      if (prodRows.length===0) { conn.release(); return res.status(400).json({ message: 'Product not found' }); }
+      const p = prodRows[0]; const qty = parseInt(item.quantity)||1;
+      const subtotal = parseFloat(p.price)*qty; totalAmount += subtotal;
+      orderItems.push({ product_id:p.id, product_code:p.code, product_name:p.name, unit_price:p.price, quantity:qty, subtotal });
     }
-
-    const actual = actual_amount != null ? Math.min(parseFloat(actual_amount), totalAmount) : totalAmount;
-
-    // Snapshot streamer and payment names
-    let streamer_name = '', payment_status_name = '';
-    if (streamer_id) {
-      const [sr] = await conn.query('SELECT name FROM streamers WHERE id = ?', [streamer_id]);
-      if (sr.length > 0) streamer_name = sr[0].name;
-    }
-    if (payment_status_id) {
-      const [ps] = await conn.query('SELECT name FROM payment_statuses WHERE id = ?', [payment_status_id]);
-      if (ps.length > 0) payment_status_name = ps[0].name;
-    }
-
+    const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),totalAmount) : totalAmount;
+    let sn='', psn='';
+    if (streamer_id) { const [sr]=await conn.query('SELECT name FROM streamers WHERE id=?',[streamer_id]); if (sr.length>0) sn=sr[0].name; }
+    if (payment_status_id) { const [ps]=await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]); if (ps.length>0) psn=ps[0].name; }
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (order_no, customer_name, customer_gender, customer_phone, customer_address, streamer_id, streamer_name, payment_status_id, payment_status_name, total_amount, actual_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [orderNo, customer_name || '', customer_gender || '', customer_phone || '', customer_address || '', streamer_id || null, streamer_name, payment_status_id || null, payment_status_name, totalAmount, actual]
+      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_address,streamer_id,streamer_name,payment_status_id,payment_status_name,total_amount,actual_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_address||'',streamer_id||null,sn,payment_status_id||null,psn,totalAmount,actual]
     );
-
     for (const oi of orderItems) {
-      await conn.query('INSERT INTO order_items (order_id, product_id, product_code, product_name, unit_price, quantity, subtotal) VALUES (?,?,?,?,?,?,?)',
-        [orderResult.insertId, oi.product_id, oi.product_code, oi.product_name, oi.unit_price, oi.quantity, oi.subtotal]);
+      await conn.query('INSERT INTO order_items (order_id,product_id,product_code,product_name,unit_price,quantity,subtotal) VALUES (?,?,?,?,?,?,?)',
+        [orderResult.insertId,oi.product_id,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal]);
     }
-
-    // Auto-create shipping record as pending
-    const shipCode = 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
-    await conn.query("INSERT INTO shipping_records (order_id, shipping_code, delivery_method, status) VALUES (?,?,'own','pending')", [orderResult.insertId, shipCode]);
-
+    const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
+    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,delivery_method,status) VALUES (?,?,'own','pending')",[orderResult.insertId,shipCode]);
     conn.release();
-    res.status(201).json({ id: orderResult.insertId, order_no: orderNo, total_amount: totalAmount });
+    res.status(201).json({ id:orderResult.insertId, order_no:orderNo, total_amount:totalAmount });
   } catch (err) { conn.release(); console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
@@ -153,14 +127,11 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { customer_name, customer_gender, customer_phone, customer_address, streamer_id, payment_status_id, actual_amount } = req.body;
-    const [orderRows] = await pool.query('SELECT total_amount FROM orders WHERE id = ?', [req.params.id]);
-    if (orderRows.length === 0) return res.status(404).json({ message: 'Not found' });
-    const actual = actual_amount != null ? Math.min(parseFloat(actual_amount), orderRows[0].total_amount) : undefined;
-
-    await pool.query(
-      'UPDATE orders SET customer_name=?, customer_gender=?, customer_phone=?, customer_address=?, streamer_id=?, payment_status_id=?, actual_amount=? WHERE id=?',
-      [customer_name, customer_gender, customer_phone, customer_address, streamer_id, payment_status_id, actual != null ? actual : orderRows[0].total_amount, req.params.id]
-    );
+    const [orderRows] = await pool.query('SELECT total_amount FROM orders WHERE id=?',[req.params.id]);
+    if (orderRows.length===0) return res.status(404).json({ message: 'Not found' });
+    const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),orderRows[0].total_amount) : undefined;
+    await pool.query('UPDATE orders SET customer_name=?,customer_gender=?,customer_phone=?,customer_address=?,streamer_id=?,payment_status_id=?,actual_amount=? WHERE id=?',
+      [customer_name,customer_gender,customer_phone,customer_address,streamer_id,payment_status_id,actual!=null?actual:orderRows[0].total_amount,req.params.id]);
     res.json({ message: 'Updated' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
@@ -168,9 +139,9 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/orders/:id - admin only
 router.delete('/:id', adminOnly, async (req, res) => {
   try {
-    await pool.query('DELETE FROM shipping_records WHERE order_id = ?', [req.params.id]);
-    await pool.query('DELETE FROM order_items WHERE order_id = ?', [req.params.id]);
-    await pool.query('DELETE FROM orders WHERE id = ?', [req.params.id]);
+    await pool.query('DELETE FROM shipping_records WHERE order_id=?',[req.params.id]);
+    await pool.query('DELETE FROM order_items WHERE order_id=?',[req.params.id]);
+    await pool.query('DELETE FROM orders WHERE id=?',[req.params.id]);
     res.json({ message: 'Deleted' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
