@@ -36,7 +36,8 @@ router.get('/', async (req, res) => {
        WHERE ${where} ORDER BY sr.initiated_at DESC LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
     );
-    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM shipping_records sr WHERE ${where}`, params);
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total FROM shipping_records sr JOIN orders o ON sr.order_id = o.id WHERE ${where}`, params);
     res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });

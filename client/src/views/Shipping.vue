@@ -104,6 +104,15 @@
           <el-descriptions-item label="Last Updated">{{ fmtDate(viewData.updated_at) }}</el-descriptions-item>
           <el-descriptions-item label="Last Updated By" :span="2">{{ viewData.updated_by || '-' }}</el-descriptions-item>
         </el-descriptions>
+        <h4 style="margin:12px 0 8px">Products</h4>
+        <el-table :data="viewData.items" size="small" border>
+          <el-table-column prop="product_name" label="Product" />
+          <el-table-column prop="unit_price" label="Unit Price" width="120"><template #default="{row}">₦{{ Number(row.unit_price).toLocaleString() }}</template></el-table-column>
+          <el-table-column prop="quantity" label="Qty" width="60" />
+          <el-table-column prop="subtotal" label="Subtotal" width="120"><template #default="{row}">₦{{ Number(row.subtotal).toLocaleString() }}</template></el-table-column>
+        </el-table>
+        <div style="text-align:right;margin-top:8px;font-size:16px;font-weight:700">Total: ₦{{ Number(viewData.total_amount).toLocaleString() }}</div>
+
         <h4 style="margin:12px 0 8px">Operation Log</h4>
         <el-table :data="logs" size="small" border>
           <el-table-column prop="action" label="Action" width="120" />
@@ -147,9 +156,11 @@ async function loadList() {
   const p = { status: activeTab.value, page_size: 100 }
   if (searchOrderNo.value) p.order_no = searchOrderNo.value
   if (searchCustomer.value) p.customer = searchCustomer.value
-  const { data } = await api.get('/shipping', { params: p })
-  list.value = data.list.map(r => ({ ...r, checked: false }))
-  loading.value = false
+  try {
+    const { data } = await api.get('/shipping', { params: p })
+    list.value = data.list.map(r => ({ ...r, checked: false }))
+  } catch (err) { ElMessage.error('Search failed') }
+  finally { loading.value = false }
 }
 
 function openShipDialog(row) {
@@ -181,8 +192,13 @@ async function saveEdit() {
 
 async function viewRecord(row) {
   viewData.value = row
-  const { data } = await api.get(`/shipping/${row.id}/logs`)
-  logs.value = data
+  const [{ data: logData }, { data: orderData }] = await Promise.all([
+    api.get(`/shipping/${row.id}/logs`),
+    api.get(`/orders/${row.order_id}`)
+  ])
+  logs.value = logData
+  viewData.value.items = orderData.items
+  viewData.value.total_amount = orderData.total_amount
   showView.value = true
 }
 
