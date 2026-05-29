@@ -76,8 +76,8 @@ router.get('/pdf', async (req, res) => {
       if (oi > 0) doc.addPage();
       const items = itemsByOrder[order.id] || [];
 
-      // Background white (whole page)
-      doc.rect(0, 0, W, H).fill('#fff');
+      // Background white
+      doc.rect(0, 0, W, H).fill('#fff').stroke('transparent');
 
       let y = M;
 
@@ -110,7 +110,7 @@ router.get('/pdf', async (req, res) => {
 
       // Table
       y += 1;
-      doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.6).stroke('#000'); doc.lineWidth(0.5);
+      doc.moveTo(M, y).lineTo(W - M, y).lineWidth(1).lineWidth(0.8).stroke('#000');
 
       const totalFr = 4.0;
       const c0 = M;
@@ -127,7 +127,7 @@ router.get('/pdf', async (req, res) => {
       doc.text('QTY', c2, y, { width: c3 - c2 - 2, align: 'right' });
       doc.text('Amount', c3, y, { width: c4 - c3, align: 'right' });
       y += 8;
-      doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
+      doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.8).stroke('#000');
 
       // Items (regular body)
       doc.font(FONT_BODY).fontSize(FS_BODY);
@@ -145,7 +145,7 @@ router.get('/pdf', async (req, res) => {
 
       // Total row (bold)
       y += 1;
-      doc.moveTo(M, y).lineTo(W - M, y).stroke('#000');
+      doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.8).stroke('#000');
       y += 4;
       doc.font('Helvetica-Bold').fontSize(5).fillColor('#111');
       doc.text('Total:', c1, y, { width: c2 - c1 - 2 });
