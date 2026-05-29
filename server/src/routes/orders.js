@@ -107,12 +107,11 @@ router.get('/pdf', async (req, res) => {
       y += 1;
       doc.moveTo(M, y).lineTo(W - M, y).lineWidth(1).lineWidth(0.8).stroke('#000');
 
-      const totalFr = 4.0;
       const c0 = M;
-      const c1 = M + (2.5 / totalFr) * IW;  // Item column end
-      const c2 = c1 + 1;                    // Price immediately after Item
-      const c3 = c2 + (0.6 / totalFr) * IW; // QTY
-      const c4 = W - M;                     // Amount stays
+      const c1 = M + 60;                    // Item column end
+      const c2 = c1 + 1;                    // Price right after Item
+      const c3 = c2 + 1;                    // QTY right after Price
+      const c4 = W - M;                     // Amount at right edge
 
       // Table header (bold)
       y += 3;
