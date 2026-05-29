@@ -6,7 +6,7 @@
     <el-tabs>
       <!-- Streamers -->
       <el-tab-pane label="Streamers">
-        <el-button type="primary" size="small" style="margin-bottom:10px" @click="openAdd('streamers')">+ Add</el-button>
+        <el-button size="small" class="btn-dark" style="margin-bottom:10px" @click="openAdd('streamers')">+ Add</el-button>
         <el-table :data="streamers" stripe size="small">
           <el-table-column prop="name" label="Name" />
           <el-table-column prop="commission_rate" label="Commission %" width="120" />
@@ -18,7 +18,7 @@
 
       <!-- Payment Statuses -->
       <el-tab-pane label="Payment Statuses">
-        <el-button type="primary" size="small" style="margin-bottom:10px" @click="openAdd('payment_statuses')">+ Add</el-button>
+        <el-button size="small" class="btn-dark" style="margin-bottom:10px" @click="openAdd('payment_statuses')">+ Add</el-button>
         <el-table :data="payStatuses" stripe size="small">
           <el-table-column prop="name" label="Name" />
           <el-table-column label="Color" width="100"><template #default="{row}"><el-tag :color="row.color" size="small">{{ row.color }}</el-tag></template></el-table-column>
@@ -30,7 +30,7 @@
 
       <!-- Delivery Staff -->
       <el-tab-pane label="Delivery Staff">
-        <el-button type="primary" size="small" style="margin-bottom:10px" @click="openAdd('delivery_staff')">+ Add</el-button>
+        <el-button size="small" class="btn-dark" style="margin-bottom:10px" @click="openAdd('delivery_staff')">+ Add</el-button>
         <el-table :data="deliveryStaff" stripe size="small">
           <el-table-column prop="name" label="Name" />
           <el-table-column label="Actions" width="140">

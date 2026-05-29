@@ -5,7 +5,7 @@
 
     <el-form :inline="true" style="margin-bottom:16px">
       <el-form-item label="Period"><el-date-picker v-model="filters.dates" type="daterange" range-separator="-" start-placeholder="From" end-placeholder="To" value-format="YYYY-MM-DD" /></el-form-item>
-      <el-form-item><el-button type="primary" @click="loadAll">Search</el-button></el-form-item>
+      <el-form-item><el-button class="btn-search" @click="loadAll">Search</el-button></el-form-item>
     </el-form>
 
     <el-tabs>
