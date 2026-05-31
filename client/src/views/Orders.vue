@@ -143,9 +143,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
-function defaultFrom() { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10) }
-function defaultTo() { return new Date().toISOString().slice(0, 10) }
-const filters = ref({ date_from: defaultFrom(), date_to: defaultTo(), streamer_id: null, payment_status_id: null, product_names: [] })
+import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
+const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [] })
 const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)

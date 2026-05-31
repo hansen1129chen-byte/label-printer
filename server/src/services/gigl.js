@@ -13,17 +13,16 @@ let tokenExpiry = 0; // epoch ms
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-function httpPost(url, body, headers = {}) {
+function httpRequest(method, url, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
-    const data = JSON.stringify(body);
+    const data = body ? JSON.stringify(body) : null;
+    const headerList = { 'Content-Type': 'application/json', ...headers };
+    if (data) headerList['Content-Length'] = Buffer.byteLength(data);
     const opts = {
-      hostname: u.hostname,
-      port: 443,
-      path: u.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), ...headers },
-      timeout: 30000,
+      hostname: u.hostname, port: 443,
+      path: method === 'GET' ? u.pathname + u.search : u.pathname,
+      method, headers: headerList, timeout: 30000,
     };
     const req = https.request(opts, res => {
       let buf = '';
@@ -34,34 +33,13 @@ function httpPost(url, body, headers = {}) {
     });
     req.on('error', reject);
     req.on('timeout', () => { req.destroy(); reject(new Error('GIGL timeout')); });
-    req.write(data);
+    if (data) req.write(data);
     req.end();
   });
 }
 
-function httpGet(url, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const opts = {
-      hostname: u.hostname,
-      port: 443,
-      path: u.pathname + u.search,
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      timeout: 30000,
-    };
-    const req = https.request(opts, res => {
-      let buf = '';
-      res.on('data', c => buf += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(buf)); } catch (e) { reject(new Error('GIGL parse error: ' + buf.slice(0, 200))); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('GIGL timeout')); });
-    req.end();
-  });
-}
+function httpGet(url, headers) { return httpRequest('GET', url, null, headers); }
+function httpPost(url, body, headers) { return httpRequest('POST', url, body, headers); }
 
 // ── auth ─────────────────────────────────────────────────────────────
 

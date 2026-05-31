@@ -123,11 +123,11 @@ const list = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-function d30ago() { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10) }
+import { defaultDateFrom, defaultDateTo, timelineColor as lineColor, fmtDateTime as fmtTime } from '../utils/gigl'
 const activeTab = ref('')
 const search = ref('')
-const dateFrom = ref(d30ago())
-const dateTo = ref(new Date().toISOString().slice(0, 10))
+const dateFrom = ref(defaultDateFrom())
+const dateTo = ref(defaultDateTo())
 
 const showTrack = ref(false)
 const trackData = ref(null)
@@ -137,15 +137,6 @@ const matchWaybill = ref(null)
 const matchShippingId = ref(null)
 const orderOptions = ref([])
 const searchingOrders = ref(false)
-
-function fmtTime(d) {
-  if (!d) return ''
-  return new Date(d).toLocaleDateString('en-GB') + ' ' + new Date(d).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })
-}
-function lineColor(code) {
-  const m = { CRT:'#909399', DSC:'#409EFF', APT:'#409EFF', ARF:'#E6A23C', WC:'#409EFF', OKC:'#67C23A', OKT:'#67C23A', DFA:'#F56C6C', SSC:'#F56C6C' }
-  return m[code] || '#909399'
-}
 
 async function loadList() {
   loading.value = true

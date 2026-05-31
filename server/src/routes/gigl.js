@@ -4,6 +4,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
+const { lastDigits, nameMatches, scoreCandidate } = require('../services/matching');
 const router = express.Router();
 router.use(authMiddleware);
 
@@ -108,60 +109,21 @@ router.get('/match-suggestions', async (req, res) => {
     );
 
     // Step 1: Hard filter — name AND phone must match
-    const localPhone = (local.customer_phone || '').replace(/\D/g, '').slice(-4);
-    const localName = (local.customer_name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const localPhone = lastDigits(local.customer_phone, 4);
 
     const matched = giglRows.filter(gs => {
-      const giglName = (gs.receiver_name || '').toLowerCase().replace(/\s+/g, ' ').trim();
-      const giglPhone = (gs.receiver_phone || '').replace(/\D/g, '').slice(-4);
-      if (!giglName || !giglPhone || !localName || !localPhone) return false;
-
-      // Name must match
-      const nameOk = giglName === localName
-        || giglName.includes(localName) || localName.includes(giglName)
-        || giglName.split(' ')[0] === localName.split(' ')[0];
-      if (!nameOk) return false;
-
-      // Phone last 4 must match
+      const giglPhone = lastDigits(gs.receiver_phone, 4);
+      if (!gs.receiver_name || !giglPhone || !local.customer_name || !localPhone) return false;
+      if (!nameMatches(local.customer_name, gs.receiver_name)) return false;
       if (giglPhone !== localPhone) return false;
-
       return true;
     });
 
-    // Step 2: Score candidates (date + amount as tiebreakers)
-    const candidates = matched.map(gs => {
-      let score = 0;
-      const giglName = (gs.receiver_name || '').toLowerCase().replace(/\s+/g, ' ').trim();
-
-      // Name quality bonus
-      if (giglName === localName) score += 10;
-      else if (giglName.includes(localName) || localName.includes(giglName)) score += 7;
-      else score += 5; // first-name match
-
-      // Phone match (already verified)
-      score += 10;
-
-      // Date proximity
-      if (gs.date_created && local.order_created_at) {
-        const diffDays = Math.abs((new Date(gs.date_created) - new Date(local.order_created_at)) / 86400000);
-        if (diffDays <= 1) score += 8;
-        else if (diffDays <= 2) score += 5;
-        else if (diffDays <= 3) score += 3;
-        else if (diffDays <= 7) score += 1;
-      }
-
-      // Amount proximity
-      const giglAmt = Number(gs.grand_total || 0);
-      const localAmt = Number(local.total_amount || 0);
-      if (giglAmt > 0 && localAmt > 0) {
-        const ratio = Math.max(giglAmt, localAmt) / Math.min(giglAmt, localAmt);
-        if (ratio <= 1.1) score += 5;
-        else if (ratio <= 1.3) score += 3;
-        else if (ratio <= 1.5) score += 1;
-      }
-
-      return { ...gs, score };
-    });
+    // Step 2: Score candidates using shared scoring
+    const candidates = matched.map(gs => ({
+      ...gs,
+      score: scoreCandidate(local, gs)
+    }));
 
     // Sort by score desc
     candidates.sort((a, b) => b.score - a.score);

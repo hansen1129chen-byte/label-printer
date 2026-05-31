@@ -3,7 +3,6 @@ const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
-const fs2 = require('fs'); fs2.writeFileSync('D:/program/Label GIG/shipping_loaded.txt', 'v2 ' + new Date().toISOString());
 
 function genShippingCode() {
   return 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -101,7 +100,6 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/action', async (req, res) => {
   try {
     const { action, delivery_method, gig_tracking, delivery_staff_id, operator } = req.body;
-    require('fs').appendFileSync('D:/program/Label GIG/ship_debug.log', JSON.stringify({ action, delivery_method, gig_tracking, id: req.params.id }) + '\n');
     const [rows] = await pool.query('SELECT * FROM shipping_records WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
     const rec = rows[0];
@@ -130,10 +128,8 @@ router.post('/:id/action', async (req, res) => {
         // If GIG: check if GIGL already shows delivered → skip straight to delivered
         if (delivery_method === 'gig' && gig_tracking) {
           const [gs] = await pool.query('SELECT is_delivered FROM gigl_shipments WHERE waybill = ?', [gig_tracking]);
-          require('fs').appendFileSync('D:/program/Label GIG/ship_debug.log', 'GIGL check: ' + gig_tracking + ' -> ' + JSON.stringify(gs[0] || null) + '\n');
           if (gs.length > 0 && gs[0].is_delivered) {
             newStatus = 'delivered'; setExtra = ', shipped_at = NOW()';
-            require('fs').appendFileSync('D:/program/Label GIG/ship_debug.log', '-> DELIVERED\n');
           }
         }
       }

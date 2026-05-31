@@ -12,7 +12,6 @@ const statsRoutes = require('./routes/stats');
 const giglRoutes = require('./routes/gigl');
 
 const app = express();
-require('fs').writeFileSync('D:/program/Label GIG/server/src/app_loaded.txt', 'LOADED ' + new Date().toISOString());
 app.use(cors());
 app.use(express.json());
 

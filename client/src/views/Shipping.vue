@@ -189,15 +189,14 @@ const trackingEvents = ref([])
 const trackingLoading = ref(false)
 const deliveryStaff = ref([])
 const selectedRows = ref([])
-function defFrom() { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10) }
-function defTo() { return new Date().toISOString().slice(0, 10) }
+import { defaultDateFrom, defaultDateTo, timelineColor, fmtDateTime as fmtDT, fmtDate as fmtD } from '../utils/gigl'
 const searchOrderNo = ref('')
 const searchCustomer = ref('')
-const dateFrom = ref(defFrom())
-const dateTo = ref(defTo())
+const dateFrom = ref(defaultDateFrom())
+const dateTo = ref(defaultDateTo())
 
-function fmtDate(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-GB') + ' ' + t.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) }
-function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-GB') + ' ' + t.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) }
+function fmtDate(d) { return fmtD(d) }
+function fmtDateTime(d) { return fmtDT(d) }
 
 async function loadList() {
   loading.value = true
@@ -306,10 +305,7 @@ async function viewRecord(row) {
   showView.value = true
 }
 
-function lineColor(code) {
-  const m = { CRT:'#909399', DSC:'#409EFF', APT:'#409EFF', ARF:'#E6A23C', WC:'#409EFF', OKC:'#67C23A', OKT:'#67C23A', DFA:'#F56C6C', SSC:'#F56C6C' }
-  return m[code] || '#909399'
-}
+function lineColor(code) { return timelineColor(code) }
 
 async function doAction(rowOrId, action, useShipForm = false) {
   const id = typeof rowOrId === 'object' ? rowOrId.id : rowOrId

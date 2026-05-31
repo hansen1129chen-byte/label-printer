@@ -10,6 +10,7 @@
  */
 const gigl = require('./gigl');
 const pool = require('../config/db');
+const { lastDigits, nameMatches, scoreCandidate, isDelivered, isCancelled } = require('./matching');
 
 const SYNC_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const JITTER_MS = 5 * 60 * 1000;              // ±5 minutes
@@ -34,71 +35,6 @@ function nigeriaHour(ts = Date.now()) {
   return new Date(ts + NIGERIA_OFFSET_MS).getUTCHours();
 }
 
-// ── helpers ──────────────────────────────────────────────────────────
-
-/**
- * Extract last N digits from a phone number string.
- * Handles formats: +234****9636, 08030925304, +2348028189636
- */
-function lastDigits(phone, n = 4) {
-  if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  return digits.slice(-n);
-}
-
-/**
- * Normalize a name for comparison: lowercase, trim, collapse whitespace.
- */
-function normName(name) {
-  return (name || '').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-/**
- * Check if two names are a "match".
- * - Exact match after normalization
- * - OR first name match (first word of each)
- * - OR one contains the other
- */
-function nameMatches(localName, giglName) {
-  const a = normName(localName);
-  const b = normName(giglName);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  // "Favour Barth" vs "favour" → match
-  const aFirst = a.split(' ')[0];
-  const bFirst = b.split(' ')[0];
-  if (aFirst === bFirst) return true;
-  // "Adetola David" vs "Adetola" → match
-  if (a.includes(b) || b.includes(a)) return true;
-  return false;
-}
-
-/**
- * Check if GIGL tracking status indicates delivery.
- * Statuses we check: currentScanStatusDescription and fullTrackHistory entries.
- */
-function isDelivered(trackData) {
-  if (!trackData) return false;
-  const desc = (trackData.currentScanStatusDescription || '').toUpperCase();
-  if (desc.includes('DELIVERED') || desc.includes('DLV')) return true;
-
-  const history = trackData.fullTrackHistory || [];
-  return history.some(h => {
-    const s = (h.status || '').toUpperCase();
-    const d = (h.scanStatusIncident || '').toUpperCase();
-    return s === 'DLV' || d.includes('DELIVERED');
-  });
-}
-
-function isShipmentCancelled(trackData) {
-  if (!trackData) return false;
-  const history = trackData.fullTrackHistory || [];
-  return history.some(h => {
-    const s = (h.status || '').toUpperCase();
-    const d = (h.scanStatusIncident || '').toUpperCase();
-    return s === 'SSC' || d.includes('CANCELLED');
-  });
-}
 
 /**
  * Log a shipping action with operator "GIGL".
@@ -165,37 +101,11 @@ async function findMatchingShipping(giglOrder, trackData) {
     if (localPhoneDigits !== giglPhoneDigits && localPhoneDigits !== giglFullPhone) continue;
 
     // ── Score this candidate ──
-    let score = 0;
-
-    // Name quality
-    const ln = (localName || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    const gn = (giglName || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    if (ln === gn) score += 10;
-    else if (ln.includes(gn) || gn.includes(ln)) score += 7;
-    else score += 5;
-
-    // Phone match (already verified by hard filter)
-    score += 10;
-
-    // Date proximity: how close is the local order to the GIGL shipment?
-    if (giglDate && row.order_created_at) {
-      const localDate = new Date(row.order_created_at);
-      const diffDays = Math.abs((giglDate - localDate) / (1000 * 60 * 60 * 24));
-      if (diffDays <= 1) score += 10;
-      else if (diffDays <= 2) score += 7;
-      else if (diffDays <= 3) score += 4;
-      else if (diffDays <= 7) score += 1;
-    }
-
-    // Amount proximity: try actual_amount first, fallback to total_amount
-    const localAmount = Number(row.actual_amount || row.total_amount || 0);
-    if (giglAmount > 0 && localAmount > 0) {
-      const ratio = Math.max(giglAmount, localAmount) / Math.min(giglAmount, localAmount);
-      if (ratio <= 1.1) score += 5;   // within 10%
-      else if (ratio <= 1.3) score += 3;  // within 30%
-      else if (ratio <= 1.5) score += 1;  // within 50%
-    }
-
+    const score = scoreCandidate(row, {
+      receiver_name: giglName,
+      grand_total: giglAmount,
+      date_created: giglDate
+    });
     candidates.push({ row, score });
   }
 
@@ -227,7 +137,7 @@ async function findMatchingShipping(giglOrder, trackData) {
  */
 async function upsertGiglShipment(s, trackData, matchedShippingId) {
   const delivered = isDelivered(trackData);
-  const cancelled = isShipmentCancelled(trackData) || (s.isCancelled ? true : false);
+  const cancelled = isCancelled(trackData) || (s.isCancelled ? true : false);
 
   // GIGL's currentScanStatusDescription can be stale — prefer last tracking history entry
   const history = trackData?.fullTrackHistory || [];
@@ -351,7 +261,7 @@ async function getSyncStartDate() {
 
 // ── main sync logic ──────────────────────────────────────────────────
 
-async function syncGiglOrders(force = false) {
+async function syncGiglOrders() {
   if (isSyncing) {
     console.log('[GIGL Sync] Skipped — previous sync still running');
     return;
@@ -359,7 +269,7 @@ async function syncGiglOrders(force = false) {
 
   console.log('[GIGL Sync] ========== Starting sync ==========');
 
-  if (!force && !isWithinSyncWindow()) {
+  if (!isWithinSyncWindow()) {
     console.log('[GIGL Sync] Outside sync window (10:00-18:00 WAT), skipping');
     return;
   }
