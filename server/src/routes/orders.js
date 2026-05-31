@@ -15,8 +15,8 @@ router.get('/', async (req, res) => {
     const { date_from, date_to, streamer_id, payment_status_id, product_names, page = 1, page_size = 20 } = req.query;
     let where = '1=1';
     const params = [];
-    if (date_from) { where += ' AND o.created_at >= ?'; params.push(date_from); }
-    if (date_to) { where += ' AND o.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
+    if (date_from) { where += ' AND COALESCE(o.order_time, o.created_at) >= ?'; params.push(date_from); }
+    if (date_to) { where += ' AND COALESCE(o.order_time, o.created_at) <= ?'; params.push(date_to + ' 23:59:59'); }
     if (streamer_id) { where += ' AND o.streamer_id = ?'; params.push(streamer_id); }
     if (payment_status_id) { where += ' AND o.payment_status_id = ?'; params.push(payment_status_id); }
     if (product_names) {
@@ -28,9 +28,14 @@ router.get('/', async (req, res) => {
     }
     const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o WHERE ${where}`, params);
     const [rows] = await pool.query(
-      `SELECT o.*, sr.status AS shipping_status, sr.shipping_code,
+      `SELECT o.*, sr.status AS shipping_status, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
+        COALESCE(gs.current_scan_status, '') AS gigl_status,
+        COALESCE(gs.is_delivered, 0) AS gigl_delivered,
+        COALESCE(gs.is_cancelled, 0) AS gigl_cancelled,
         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
-       FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id
+       FROM orders o
+       LEFT JOIN shipping_records sr ON sr.order_id = o.id
+       LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill
        WHERE ${where} ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page)-1)*parseInt(page_size)]
     );
@@ -181,8 +186,8 @@ router.get('/export', async (req, res) => {
     let where = '1=1';
     const params = [];
     if (ids) { where += ' AND o.id IN (' + ids.split(',').map(()=>'?').join(',') + ')'; ids.split(',').forEach(id=>params.push(id)); }
-    if (date_from) { where += ' AND o.created_at >= ?'; params.push(date_from); }
-    if (date_to) { where += ' AND o.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
+    if (date_from) { where += ' AND COALESCE(o.order_time, o.created_at) >= ?'; params.push(date_from); }
+    if (date_to) { where += ' AND COALESCE(o.order_time, o.created_at) <= ?'; params.push(date_to + ' 23:59:59'); }
     if (streamer_id) { where += ' AND o.streamer_id = ?'; params.push(streamer_id); }
     if (payment_status_id) { where += ' AND o.payment_status_id = ?'; params.push(payment_status_id); }
     if (product_names) {
@@ -258,7 +263,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const { customer_name, customer_gender, customer_phone, customer_address, streamer_id, payment_status_id, actual_amount, items } = req.body;
+    const { customer_name, customer_gender, customer_phone, customer_address, order_time, streamer_id, payment_status_id, actual_amount, items } = req.body;
     if (!items || !Array.isArray(items) || items.length===0) return res.status(400).json({ message: 'Select at least one product' });
     const prefix = genOrderNo();
     const [lastRows] = await conn.query("SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY order_no DESC LIMIT 1",[prefix+'%']);
@@ -278,9 +283,10 @@ router.post('/', async (req, res) => {
     let sn='', psn='', cr=0;
     if (streamer_id) { const [sr]=await conn.query('SELECT name,commission_rate FROM streamers WHERE id=?',[streamer_id]); if (sr.length>0) { sn=sr[0].name; cr=sr[0].commission_rate; } }
     if (payment_status_id) { const [ps]=await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]); if (ps.length>0) psn=ps[0].name; }
+    const orderTime = order_time || new Date();
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_address,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_address||'',streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual]
+      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_address,order_time,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_address||'',orderTime,streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual]
     );
     for (const oi of orderItems) {
       await conn.query('INSERT INTO order_items (order_id,product_id,product_code,product_name,unit_price,quantity,subtotal) VALUES (?,?,?,?,?,?,?)',
@@ -296,12 +302,15 @@ router.post('/', async (req, res) => {
 // PUT /api/orders/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { customer_name, customer_gender, customer_phone, customer_address, streamer_id, payment_status_id, actual_amount } = req.body;
+    const { customer_name, customer_gender, customer_phone, customer_address, order_time, streamer_id, payment_status_id, actual_amount } = req.body;
     const [orderRows] = await pool.query('SELECT total_amount FROM orders WHERE id=?',[req.params.id]);
     if (orderRows.length===0) return res.status(404).json({ message: 'Not found' });
     const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),orderRows[0].total_amount) : undefined;
-    await pool.query('UPDATE orders SET customer_name=?,customer_gender=?,customer_phone=?,customer_address=?,streamer_id=?,payment_status_id=?,actual_amount=? WHERE id=?',
-      [customer_name,customer_gender,customer_phone,customer_address,streamer_id,payment_status_id,actual!=null?actual:orderRows[0].total_amount,req.params.id]);
+    const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_address=?','streamer_id=?','payment_status_id=?','actual_amount=?'];
+    const values = [customer_name,customer_gender,customer_phone,customer_address,streamer_id,payment_status_id,actual!=null?actual:orderRows[0].total_amount];
+    if (order_time) { updates.push('order_time=?'); values.push(order_time); }
+    values.push(req.params.id);
+    await pool.query('UPDATE orders SET '+updates.join(',')+' WHERE id=?', values);
     res.json({ message: 'Updated' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });

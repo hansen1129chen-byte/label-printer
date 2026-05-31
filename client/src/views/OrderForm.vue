@@ -13,6 +13,7 @@
       <el-row :gutter="16">
         <el-col :span="12"><el-form-item label="Address" required><el-input v-model="form.customer_address" type="textarea" :rows="2" placeholder="Delivery address" /></el-form-item></el-col>
         <el-col :span="6"><el-form-item label="Payment Status" required><el-select v-model="form.payment_status_id" placeholder="Select"><el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" /></el-select></el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="Order Date (下单时间)"><el-date-picker v-model="form.order_time" type="date" placeholder="Pick date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
       </el-row>
 
       <h4 style="margin:12px 0">Products <span style="color:#f56c6c">*</span></h4>
@@ -72,7 +73,8 @@ const items = ref([{ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }
 
 const form = ref({
   customer_name: '', customer_gender: '', customer_phone: '', customer_address: '',
-  streamer_id: null, payment_status_id: null, actual_amount: 0
+  streamer_id: null, payment_status_id: null, actual_amount: 0,
+  order_time: new Date().toISOString().slice(0, 10)
 })
 
 const totalAmount = computed(() => items.value.reduce((s, i) => s + (i.subtotal || 0), 0))

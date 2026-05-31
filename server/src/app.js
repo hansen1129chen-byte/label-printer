@@ -9,8 +9,10 @@ const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
 const shippingRoutes = require('./routes/shipping');
 const statsRoutes = require('./routes/stats');
+const giglRoutes = require('./routes/gigl');
 
 const app = express();
+require('fs').writeFileSync('D:/program/Label GIG/server/src/app_loaded.txt', 'LOADED ' + new Date().toISOString());
 app.use(cors());
 app.use(express.json());
 
@@ -22,6 +24,15 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/shipping', shippingRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/gigl', giglRoutes);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Serve frontend (built dist)
+const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
+app.use(express.static(clientDist));
+// SPA fallback — non-API routes serve index.html
+app.get(/^(?!\/api\/|\/uploads\/).*/, (req, res) => {
+  res.sendFile(path.join(clientDist, 'index.html'));
+});
 
 module.exports = app;

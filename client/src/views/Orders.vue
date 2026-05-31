@@ -46,9 +46,28 @@
           <el-tag :type="row.payment_status_name === 'PAID' ? 'success' : 'danger'" size="small">{{ row.payment_status_name }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Shipping" width="110">
+      <el-table-column label="Method" width="80">
         <template #default="{row}">
-          <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+          <el-tag v-if="row.delivery_method === 'gig'" type="" size="small">GIG</el-tag>
+          <el-tag v-else-if="row.delivery_method === 'own'" type="info" size="small">OWN</el-tag>
+          <span v-else style="color:var(--fg-muted)">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Ship Status" width="130">
+        <template #default="{row}">
+          <template v-if="row.delivery_method === 'gig'">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span v-if="row.gig_tracking" style="font-size:11px;font-weight:500;color:var(--accent)">{{ row.gig_tracking }}</span>
+              <el-tag v-if="row.gigl_cancelled" type="danger" size="small">Cancelled</el-tag>
+              <el-tag v-else-if="row.gigl_delivered" type="success" size="small">Delivered</el-tag>
+              <el-tag v-else-if="row.gigl_status" type="" size="small">{{ row.gigl_status }}</el-tag>
+              <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+            </div>
+          </template>
+          <template v-else-if="row.delivery_method === 'own'">
+            <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+          </template>
+          <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="total_amount" label="Total" width="100">
@@ -57,7 +76,10 @@
       <el-table-column prop="actual_amount" label="Actual" width="100">
         <template #default="{row}">{{ '₦' + Number(row.actual_amount).toLocaleString() }}</template>
       </el-table-column>
-      <el-table-column prop="created_at" label="Date" width="110">
+      <el-table-column label="Order Time" width="110">
+        <template #default="{row}">{{ (row.order_time || row.created_at)?.slice(0,10) }}</template>
+      </el-table-column>
+      <el-table-column label="Created" width="110">
         <template #default="{row}">{{ row.created_at?.slice(0,10) }}</template>
       </el-table-column>
       <el-table-column label="Actions" width="140" fixed="right">
@@ -89,6 +111,9 @@
           <el-descriptions-item label="Total">₦{{ Number(currentOrder.total_amount).toLocaleString() }}</el-descriptions-item>
           <el-descriptions-item label="Actual">₦{{ Number(currentOrder.actual_amount).toLocaleString() }}</el-descriptions-item>
           <el-descriptions-item label="Shipping"><el-tag :type="shipTag(currentOrder.shipping_status)" size="small">{{ shipLabel(currentOrder.shipping_status) }}</el-tag></el-descriptions-item>
+          <el-descriptions-item label="Order Time">{{ fmtDate(currentOrder.order_time || currentOrder.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="Created">{{ fmtDateTime(currentOrder.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="Updated" :span="2">{{ fmtDateTime(currentOrder.updated_at) }}</el-descriptions-item>
         </el-descriptions>
         <h4 style="margin:12px 0 8px">Items</h4>
         <el-table :data="currentOrder.items" size="small">
@@ -118,7 +143,9 @@ const page = ref(1)
 const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
-const filters = ref({ date_from: '', date_to: '', streamer_id: null, payment_status_id: null, product_names: [] })
+function defaultFrom() { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10) }
+function defaultTo() { return new Date().toISOString().slice(0, 10) }
+const filters = ref({ date_from: defaultFrom(), date_to: defaultTo(), streamer_id: null, payment_status_id: null, product_names: [] })
 const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)
@@ -143,6 +170,8 @@ async function viewDetail(row) {
 }
 
 function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }
+function fmtDate(d) { if (!d) return '-'; return new Date(d).toISOString().slice(0,10) }
+function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toISOString().slice(0,10) + ' ' + t.toTimeString().slice(0,8) }
 function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger' }[s] || 'info' }
 
 // Refresh with 60s throttle

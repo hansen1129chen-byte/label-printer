@@ -8,6 +8,7 @@ const routes = [
   { path: '/orders/new', name: 'NewOrder', component: () => import('../views/OrderForm.vue') },
   { path: '/orders/:id/edit', name: 'EditOrder', component: () => import('../views/OrderForm.vue') },
   { path: '/shipping', name: 'Shipping', component: () => import('../views/Shipping.vue') },
+  { path: '/gigl', name: 'GiglShipments', component: () => import('../views/GiglShipments.vue') },
   { path: '/products', name: 'Products', component: () => import('../views/Products.vue') },
   { path: '/config', name: 'Config', component: () => import('../views/Config.vue'), meta: { admin: true } },
   { path: '/stats', name: 'Stats', component: () => import('../views/Stats.vue'), meta: { admin: true } },

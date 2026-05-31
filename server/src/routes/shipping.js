@@ -3,6 +3,7 @@ const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
+const fs2 = require('fs'); fs2.writeFileSync('D:/program/Label GIG/shipping_loaded.txt', 'v2 ' + new Date().toISOString());
 
 function genShippingCode() {
   return 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -20,14 +21,24 @@ router.get('/', async (req, res) => {
     const { status, date_from, date_to, order_no, customer, page = 1, page_size = 20 } = req.query;
     let where = '1=1';
     const params = [];
-    if (status) { where += ' AND sr.status = ?'; params.push(status); }
+    if (status === 'gigl_cancelled') {
+      where += ' AND sr.delivery_method = ? AND sr.gig_tracking != ?';
+      params.push('gig', '');
+      where += ' AND EXISTS (SELECT 1 FROM gigl_shipments gs WHERE gs.waybill = sr.gig_tracking AND gs.is_cancelled = 1)';
+    } else if (status === 'gigl_failed') {
+      where += ' AND sr.delivery_method = ? AND sr.gig_tracking != ?';
+      params.push('gig', '');
+      where += ' AND EXISTS (SELECT 1 FROM gigl_shipments gs WHERE gs.waybill = sr.gig_tracking AND gs.is_delivered = 0 AND gs.is_cancelled = 0 AND EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = gs.waybill AND te.status_code = \'DFA\'))';
+    } else if (status) {
+      where += ' AND sr.status = ?'; params.push(status);
+    }
     if (order_no) { where += ' AND o.order_no LIKE ?'; params.push('%'+order_no+'%'); }
     if (customer) { where += ' AND (o.customer_name LIKE ? OR o.customer_phone LIKE ?)'; params.push('%'+customer+'%', '%'+customer+'%'); }
-    if (date_from) { where += ' AND sr.initiated_at >= ?'; params.push(date_from); }
-    if (date_to) { where += ' AND sr.initiated_at <= ?'; params.push(date_to + ' 23:59:59'); }
+    if (date_from) { where += ' AND COALESCE(o.order_time, o.created_at) >= ?'; params.push(date_from); }
+    if (date_to) { where += ' AND COALESCE(o.order_time, o.created_at) <= ?'; params.push(date_to + ' 23:59:59'); }
 
     const [rows] = await pool.query(
-      `SELECT sr.*, o.order_no, o.created_at AS order_created_at,
+      `SELECT sr.*, o.order_no, o.order_time, o.created_at AS order_created_at,
         o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
         ds.name AS delivery_staff_name, o.streamer_id
        FROM shipping_records sr
@@ -90,6 +101,7 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/action', async (req, res) => {
   try {
     const { action, delivery_method, gig_tracking, delivery_staff_id, operator } = req.body;
+    require('fs').appendFileSync('D:/program/Label GIG/ship_debug.log', JSON.stringify({ action, delivery_method, gig_tracking, id: req.params.id }) + '\n');
     const [rows] = await pool.query('SELECT * FROM shipping_records WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
     const rec = rows[0];
@@ -114,6 +126,16 @@ router.post('/:id/action', async (req, res) => {
         }
         await pool.query('UPDATE shipping_records SET delivery_method=?, gig_tracking=?, delivery_staff_id=?, delivery_staff_name=? WHERE id=?',
           [delivery_method, gig_tracking || '', delivery_method==='own' ? delivery_staff_id : null, dsName, rec.id]);
+
+        // If GIG: check if GIGL already shows delivered → skip straight to delivered
+        if (delivery_method === 'gig' && gig_tracking) {
+          const [gs] = await pool.query('SELECT is_delivered FROM gigl_shipments WHERE waybill = ?', [gig_tracking]);
+          require('fs').appendFileSync('D:/program/Label GIG/ship_debug.log', 'GIGL check: ' + gig_tracking + ' -> ' + JSON.stringify(gs[0] || null) + '\n');
+          if (gs.length > 0 && gs[0].is_delivered) {
+            newStatus = 'delivered'; setExtra = ', shipped_at = NOW()';
+            require('fs').appendFileSync('D:/program/Label GIG/ship_debug.log', '-> DELIVERED\n');
+          }
+        }
       }
     }
     else if (action === 'deliver') newStatus = 'delivered';
