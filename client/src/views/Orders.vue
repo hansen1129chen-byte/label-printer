@@ -53,16 +53,13 @@
           <span v-else style="color:var(--fg-muted)">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="Ship Status" width="130">
+      <el-table-column label="Ship Status" width="120">
         <template #default="{row}">
           <template v-if="row.delivery_method === 'gig'">
-            <div style="display:flex;flex-direction:column;gap:2px">
-              <span v-if="row.gig_tracking" style="font-size:11px;font-weight:500;color:var(--accent)">{{ row.gig_tracking }}</span>
-              <el-tag v-if="row.gigl_cancelled" type="danger" size="small">Cancelled</el-tag>
-              <el-tag v-else-if="row.gigl_delivered" type="success" size="small">Delivered</el-tag>
-              <el-tag v-else-if="row.gigl_status" type="" size="small">{{ row.gigl_status }}</el-tag>
-              <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
-            </div>
+            <el-tag v-if="row.gigl_cancelled" type="danger" size="small">Cancelled</el-tag>
+            <el-tag v-else-if="row.gigl_delivered" type="success" size="small">Delivered</el-tag>
+            <el-tag v-else-if="row.gigl_failed" type="warning" size="small">Failed</el-tag>
+            <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
           </template>
           <template v-else-if="row.delivery_method === 'own'">
             <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>

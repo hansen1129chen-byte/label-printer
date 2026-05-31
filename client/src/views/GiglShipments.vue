@@ -43,7 +43,7 @@
       </el-table-column>
       <el-table-column label="Local Order" width="140">
         <template #default="{row}">
-          <span v-if="row.order_no" style="color:var(--accent);font-weight:500">{{ row.order_no }}</span>
+          <span v-if="row.order_no" style="color:#1a56db;font-weight:700;font-size:13px">{{ row.order_no }}</span>
           <span v-else style="color:var(--fg-muted)">—</span>
         </template>
       </el-table-column>

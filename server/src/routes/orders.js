@@ -29,9 +29,12 @@ router.get('/', async (req, res) => {
     const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o WHERE ${where}`, params);
     const [rows] = await pool.query(
       `SELECT o.*, sr.status AS shipping_status, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
-        COALESCE(gs.current_scan_status, '') AS gigl_status,
         COALESCE(gs.is_delivered, 0) AS gigl_delivered,
         COALESCE(gs.is_cancelled, 0) AS gigl_cancelled,
+        CASE WHEN gs.is_cancelled = 1 THEN 0
+             WHEN gs.is_delivered = 1 THEN 0
+             WHEN EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code = 'DFA') THEN 1
+             ELSE 0 END AS gigl_failed,
         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
