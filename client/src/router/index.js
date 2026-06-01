@@ -14,12 +14,14 @@ const routes = [
   { path: '/stats', name: 'Stats', component: () => import('../views/Stats.vue'), meta: { admin: true } },
   { path: '/accounts', name: 'Accounts', component: () => import('../views/Accounts.vue'), meta: { admin: true } },
   { path: '/profile', name: 'Profile', component: () => import('../views/Profile.vue') },
-  { path: '/:pathMatch(.*)*', redirect: '/' },
+  { path: '/shipping_check', name: 'ShippingCheck', component: () => import('../views/TrackPublic.vue'), meta: { public: true } },
+{ path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to, from, next) => {
+  if (to.meta.public) return next()
   const loggedIn = isLoggedIn()
   const user = getUser()
   if (to.meta.guest && loggedIn) return next('/orders')

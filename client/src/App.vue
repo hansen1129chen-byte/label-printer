@@ -54,7 +54,7 @@ const router = useRouter()
 const user = ref(getUser())
 watch(() => route.path, () => { user.value = getUser() })
 
-const showLayout = computed(() => route.path !== '/login')
+const showLayout = computed(() => route.path !== '/login' && route.path !== '/shipping_check')
 const activeMenu = computed(() => {
   const p = route.path
   if (p.startsWith('/orders')) return '/orders'
