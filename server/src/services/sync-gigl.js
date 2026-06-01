@@ -50,6 +50,7 @@ async function logGiglAction(shippingId, action, detail) {
  * Check if current Nigeria time is within the sync window (10:00–18:00 WAT).
  */
 function isWithinSyncWindow() {
+  if (process.env.SYNC_FORCE === 'true') return true;
   const hour = nigeriaHour();
   return hour >= 10 && hour < 18;
 }
