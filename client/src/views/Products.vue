@@ -18,6 +18,7 @@
       <el-table-column prop="code" label="Code" width="120" sortable="custom" />
       <el-table-column prop="name" label="Name" min-width="180" />
       <el-table-column label="Price" width="120"><template #default="{row}">₦{{ Number(row.price).toLocaleString() }}</template></el-table-column>
+      <el-table-column v-if="isAdmin" label="Cost" width="120"><template #default="{row}">₦{{ Number(row.cost || 0).toLocaleString() }}</template></el-table-column>
       <el-table-column label="Status" width="100"><template #default="{row}"><el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? 'Active' : 'Inactive' }}</el-tag></template></el-table-column>
       <el-table-column v-if="isAdmin" label="Actions" width="180" fixed="right">
         <template #default="{row, $index}">
@@ -43,6 +44,7 @@
         </el-row>
         <el-form-item label="Name" required><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="Price" required><el-input-number v-model="form.price" :min="0" :step="500" style="width:100%" /></el-form-item>
+        <el-form-item v-if="isAdmin" label="Cost" required><el-input-number v-model="form.cost" :min="0" :step="500" style="width:100%" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">Cancel</el-button>
@@ -78,7 +80,7 @@ async function onSortChange({ prop, order }) {
 }
 const showDialog = ref(false)
 const editing = ref(null)
-const form = ref({ sort_order: 0, code: '', name: '', price: 0, status: 'active' })
+const form = ref({ sort_order: 0, code: '', name: '', price: 0, cost: 0, status: 'active' })
 
 async function loadProducts() {
   loading.value = true
@@ -89,12 +91,12 @@ async function loadProducts() {
   products.value = data.list; total.value = data.total; loading.value = false
 }
 
-function openCreate() { editing.value = null; form.value = { sort_order: products.value.length + 1, code: '', name: '', price: 0, status: 'active' }; showDialog.value = true }
-function openEdit(p) { editing.value = p; form.value = { sort_order: p.sort_order, code: p.code, name: p.name, price: p.price, status: p.status }; showDialog.value = true }
+function openCreate() { editing.value = null; form.value = { sort_order: products.value.length + 1, code: '', name: '', price: 0, cost: 0, status: 'active' }; showDialog.value = true }
+function openEdit(p) { editing.value = p; form.value = { sort_order: p.sort_order, code: p.code, name: p.name, price: p.price, cost: p.cost || 0, status: p.status }; showDialog.value = true }
 
 async function handleSave() {
-  if (!form.value.code || !form.value.name || !form.value.price) { ElMessage.warning('All fields required'); return }
-  const p = { ...form.value, price: parseFloat(form.value.price) }
+  if (!form.value.code || !form.value.name || !form.value.price || form.value.cost == null) { ElMessage.warning('All fields required'); return }
+  const p = { ...form.value, price: parseFloat(form.value.price), cost: parseFloat(form.value.cost) }
   try {
     if (editing.value) { await api.put(`/products/${editing.value.id}`, p) }
     else {

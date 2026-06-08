@@ -4,7 +4,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
-const { lastDigits, nameMatches, scoreCandidate } = require('../services/matching');
+const { last10Digits, nameMatches, scoreCandidate } = require('../services/matching');
 const router = express.Router();
 router.use(authMiddleware);
 
@@ -14,7 +14,7 @@ router.use(authMiddleware);
  */
 router.get('/shipments', async (req, res) => {
   try {
-    const { status, search, date_from, date_to, page = 1, page_size = 20 } = req.query;
+    const { status, search, date_from, date_to, page = 1, page_size = 20, sort_by, sort_dir, order_no } = req.query;
     let where = '1=1';
     const params = [];
 
@@ -31,6 +31,7 @@ router.get('/shipments', async (req, res) => {
       where += ' AND (gs.waybill LIKE ? OR gs.receiver_name LIKE ? OR gs.receiver_phone LIKE ?)';
       params.push('%' + search + '%', '%' + search + '%', '%' + search + '%');
     }
+    if (order_no) { where += ' AND o.order_no LIKE ?'; params.push('%' + order_no + '%'); }
 
     const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM gigl_shipments gs WHERE ${where}`, params
@@ -53,7 +54,7 @@ router.get('/shipments', async (req, res) => {
        LEFT JOIN shipping_records sr ON gs.matched_shipping_id = sr.id
        LEFT JOIN orders o ON sr.order_id = o.id
        WHERE ${where}
-       ORDER BY gs.date_created DESC
+       ORDER BY ${sort_by === 'waybill' ? 'gs.waybill' : 'gs.date_created'} ${sort_dir === 'asc' ? 'ASC' : 'DESC'}
        LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
     );
@@ -103,19 +104,23 @@ router.get('/match-suggestions', async (req, res) => {
     const local = srRows[0];
 
     // Get unmatched GIGL shipments (or already matched to this shipping record)
+    // Removed is_cancelled filter — cancelled waybills may still be valid matches
     const [giglRows] = await pool.query(
-      `SELECT * FROM gigl_shipments WHERE is_cancelled = 0 AND (matched_shipping_id IS NULL OR matched_shipping_id = ?) ORDER BY date_created DESC`,
+      `SELECT * FROM gigl_shipments WHERE matched_shipping_id IS NULL OR matched_shipping_id = ? ORDER BY date_created DESC`,
       [shipping_id]
     );
 
-    // Step 1: Hard filter — name AND phone must match
-    const localPhone = lastDigits(local.customer_phone, 4);
+    // Step 1: Match by phone last 10 digits — Nigerian core mobile number
+    const localPhone = last10Digits(local.customer_phone);
 
     const matched = giglRows.filter(gs => {
-      const giglPhone = lastDigits(gs.receiver_phone, 4);
-      if (!gs.receiver_name || !giglPhone || !local.customer_name || !localPhone) return false;
-      if (!nameMatches(local.customer_name, gs.receiver_name)) return false;
+      const giglPhone = last10Digits(gs.receiver_phone);
+      if (!giglPhone || !localPhone) return false;
       if (giglPhone !== localPhone) return false;
+      // GIGL shipment date must be AFTER order time
+      const localOrderTime = local.order_created_at ? new Date(local.order_created_at) : null;
+      const giglDate = gs.date_created ? new Date(gs.date_created) : null;
+      if (giglDate && localOrderTime && giglDate < localOrderTime) return false;
       return true;
     });
 
@@ -168,6 +173,14 @@ router.post('/shipments/:waybill/match', async (req, res) => {
 
     res.json({ message: 'Matched', waybill, shipping_id });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
+// GET /api/gigl/sync-status — scheduler health
+router.get('/sync-status', async (req, res) => {
+  try {
+    const { getSyncStatus } = require('../services/sync-gigl');
+    res.json(getSyncStatus());
+  } catch (err) { res.status(500).json({ message: 'Error' }); }
 });
 
 module.exports = router;

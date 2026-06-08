@@ -107,7 +107,27 @@ async function getShipments(startDate, endDate) {
 }
 
 /**
- * Track a single waybill — returns full tracking history.
+ * Track a single waybill — returns full tracking data.
+ *
+ * ★ 这个接口返回的是实时数据，不受日期窗口限制 ★
+ *
+ * 返回值结构：
+ *   {
+ *     fullTrackHistory: [                    ← 完整物流轨迹数组
+ *       {
+ *         scanStatusIncident: "OKC",         ← 状态码（用于判断签收/取消）
+ *         scanStatusIncidentDescription: "DELIVERED TO CUSTOMER",
+ *         scanStatusIncidentDateTime: "...",
+ *         location: "...",
+ *         scanStatusReason: "...",
+ *         operatorName: "..."
+ *       }, ...
+ *     ],
+ *     currentScanStatusDescription: "...",   ← 可能不更新，取 fullTrackHistory 最后一条
+ *     receiverPhoneNumber: "...",            ← 完整手机号（列表API脱敏，这里不脱敏）
+ *     destination: "...",
+ *     senderPhoneNumber: "..."
+ *   }
  */
 async function trackShipment(waybill) {
   const token = await getToken();

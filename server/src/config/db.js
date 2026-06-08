@@ -9,6 +9,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
+  timezone: '+08:00', // MySQL server is in China UTC+8 — mysql2 uses this to convert DATETIME to JS Date
 });
 
 module.exports = pool;

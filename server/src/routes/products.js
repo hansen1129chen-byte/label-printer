@@ -33,20 +33,20 @@ router.get('/', async (req, res) => {
 
 router.post('/', adminOnly, async (req, res) => {
   try {
-    const { code, name, price, sort_order, status } = req.body;
-    if (!code || !name || price == null) return res.status(400).json({ message: 'All fields required' });
+    const { code, name, price, cost, sort_order, status } = req.body;
+    if (!code || !name || price == null || cost == null) return res.status(400).json({ message: 'All fields required' });
     const [dup] = await pool.query('SELECT id FROM products WHERE code=? OR name=?', [code, name]);
     if (dup.length > 0) return res.status(400).json({ message: 'Product code or name already exists' });
-    const [r] = await pool.query('INSERT INTO products (code, name, price, sort_order, status) VALUES (?,?,?,?,?)',
-      [code, name, price, sort_order || 0, status || 'active']);
+    const [r] = await pool.query('INSERT INTO products (code, name, price, cost, sort_order, status) VALUES (?,?,?,?,?,?)',
+      [code, name, price, cost, sort_order || 0, status || 'active']);
     res.status(201).json({ id: r.insertId });
   } catch (err) { res.status(500).json({ message: 'Server error' }); }
 });
 
 router.put('/:id', adminOnly, async (req, res) => {
   try {
-    const { code, name, price, sort_order, status } = req.body;
-    if (!code || !name || price == null) return res.status(400).json({ message: 'All fields required' });
+    const { code, name, price, cost, sort_order, status } = req.body;
+    if (!code || !name || price == null || cost == null) return res.status(400).json({ message: 'All fields required' });
     const selfId = Number(req.params.id);
     if (!selfId || selfId < 1) return res.status(400).json({ message: 'Invalid product ID' });
     const [dup] = await pool.query('SELECT id FROM products WHERE (code=? OR name=?) AND id!=?', [code, name, selfId]);
@@ -54,8 +54,8 @@ router.put('/:id', adminOnly, async (req, res) => {
       const conflictIds = dup.map(d => d.id).join(',');
       return res.status(400).json({ message: 'Product code or name already exists' });
     }
-    await pool.query('UPDATE products SET code=?, name=?, price=?, sort_order=?, status=? WHERE id=?',
-      [code, name, price, sort_order, status, req.params.id]);
+    await pool.query('UPDATE products SET code=?, name=?, price=?, cost=?, sort_order=?, status=? WHERE id=?',
+      [code, name, price, cost, sort_order, status, req.params.id]);
     res.json({ message: 'Updated' });
   } catch (err) { res.status(500).json({ message: 'Server error' }); }
 });

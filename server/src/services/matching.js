@@ -12,6 +12,14 @@ function lastDigits(phone, n = 4) {
 }
 
 /**
+ * Extract last 10 digits — matches Nigerian core mobile number.
+ * Handles both 0XXXXXXXXXX (11 digits) and 234XXXXXXXXXX (13 digits).
+ */
+function last10Digits(phone) {
+  return lastDigits(phone, 10);
+}
+
+/**
  * Normalize a name: lowercase, trim, collapse whitespace.
  */
 function normName(name) {
@@ -73,7 +81,17 @@ function scoreCandidate(localRow, giglShipment) {
 }
 
 /**
- * Check if GIGL tracking data indicates delivery.
+ * ══════════════════ 判断签收 ══════════════════
+ *
+ * ★ 数据来源：GIGL API trackShipment 返回的 trackData（实时 API 响应）
+ * ★ 不用 gigl_shipments.is_delivered 字段（不可信）
+ *
+ * 判断逻辑：
+ *   1. 先检查 currentScanStatusDescription 是否包含 DELIVERED 或 DLV
+ *   2. 再遍历 fullTrackHistory[] 每个事件，检查 scanStatusIncident 是否包含 DELIVERED 或状态码为 DLV
+ *   3. 任一命中就返回 true
+ *
+ * 对应 GIGL 状态码：OKC（送达到客户）、OKT（终端自提）
  */
 function isDelivered(trackData) {
   if (!trackData) return false;
@@ -88,7 +106,17 @@ function isDelivered(trackData) {
 }
 
 /**
- * Check if GIGL tracking data indicates cancellation.
+ * ══════════════════ 判断取消 ══════════════════
+ *
+ * ★ 数据来源：GIGL API trackShipment 返回的 trackData（实时 API 响应）
+ * ★ 不用 gigl_shipments.is_cancelled 字段（GIGL API 的 isCancelled 永远返回 false）
+ *
+ * 判断逻辑：
+ *   1. 遍历 fullTrackHistory[] 每个事件
+ *   2. 检查 scanStatusIncident 是否包含 CANCELLED 或状态码为 SSC
+ *   3. 任一命中就返回 true
+ *
+ * 对应 GIGL 状态码：SSC（已取消）
  */
 function isCancelled(trackData) {
   if (!trackData) return false;
@@ -100,4 +128,4 @@ function isCancelled(trackData) {
   });
 }
 
-module.exports = { lastDigits, normName, nameMatches, scoreCandidate, isDelivered, isCancelled };
+module.exports = { lastDigits, last10Digits, normName, nameMatches, scoreCandidate, isDelivered, isCancelled };

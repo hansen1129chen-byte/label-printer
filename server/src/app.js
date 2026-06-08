@@ -10,12 +10,17 @@ const orderRoutes = require('./routes/orders');
 const shippingRoutes = require('./routes/shipping');
 const statsRoutes = require('./routes/stats');
 const giglRoutes = require('./routes/gigl');
+const whatsappFlowRoutes = require('./routes/whatsapp-flow');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use('/whatsapp-flow', (req, res, next) => {
+  res.type('json');
+  next();
+}, express.static(path.join(__dirname, '..', 'public', 'whatsapp-flow')));
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/config', configRoutes);
@@ -24,24 +29,24 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/shipping', shippingRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/gigl', giglRoutes);
+app.use('/api/whatsapp-flow', whatsappFlowRoutes);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Public tracking — no login required (WhatsApp Flow)
 app.get('/api/public/track', async (req, res) => {
   try {
     const pool = require('./config/db');
-    const { q } = req.query;
-    if (!q || q.trim().length < 3) return res.status(400).json({ message: 'Enter at least 3 characters' });
+    const { order_no, phone } = req.query;
+    if (!order_no || !phone) return res.status(400).json({ message: 'No orders found. Please check your details.' });
+    // Normalize Nigerian phone: handle both 0xxx and 234xxx formats
+    let phoneDigits = phone.trim().replace(/\D/g, '');
+    if (phoneDigits.startsWith('234') && phoneDigits.length >= 10) phoneDigits = phoneDigits.slice(3);
+    if (phoneDigits.startsWith('0')) phoneDigits = phoneDigits.slice(1);
+    const phoneLast4 = phoneDigits.slice(-4);
+    if (phoneLast4.length < 4) return res.status(400).json({ message: 'No orders found. Please check your details.' });
 
-    const keyword = q.trim();
-    const phoneDigits = keyword.replace(/\D/g, '').slice(-4);
-    let where, params;
-    if (/^PF\d+/i.test(keyword)) {
-      where = 'o.order_no LIKE ?'; params = ['%' + keyword + '%'];
-    } else {
-      where = "RIGHT(REPLACE(o.customer_phone, '+', ''), 4) = ?";
-      params = [phoneDigits];
-    }
+    let where = "o.order_no LIKE ? AND RIGHT(REPLACE(o.customer_phone, '+', ''), 4) = ?";
+    const params = ['%' + order_no.trim() + '%', phoneLast4];
 
     const [rows] = await pool.query(
       `SELECT o.order_no, o.customer_name,
@@ -53,7 +58,7 @@ app.get('/api/public/track', async (req, res) => {
         COALESCE(gs.is_cancelled,0) AS gigl_cancelled,
         COALESCE(gs.current_scan_status,'') AS current_scan_status,
         COALESCE(gs.destination,'') AS destination
-       FROM orders o
+       FROM orders o AND o.is_deleted = 0
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
        LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill
        WHERE ${where} ORDER BY o.created_at DESC LIMIT 10`, params

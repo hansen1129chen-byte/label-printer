@@ -14,10 +14,13 @@ router.get('/sales', async (req, res) => {
     if (date_to) { where += ' AND o.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
 
     const [summary] = await pool.query(
-      `SELECT COUNT(*) AS total_orders, SUM(o.total_amount) AS total_sales, SUM(o.actual_amount) AS total_actual
-       FROM orders o WHERE ${where}`, params
+      `SELECT COUNT(*) AS total_orders, SUM(o.total_amount) AS total_sales, SUM(o.actual_amount) AS total_actual,
+        COALESCE(SUM((SELECT SUM(oi2.quantity * COALESCE(oi2.unit_cost,0)) FROM order_items oi2 WHERE oi2.order_id=o.id)), 0) AS total_cost
+       FROM orders o WHERE o.is_deleted = 0 AND ${where}`, params
     );
-    res.json(summary[0]);
+    const s = summary[0];
+    s.gross_profit = (s.total_sales || 0) - (s.total_cost || 0);
+    res.json(s);
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
@@ -36,7 +39,7 @@ router.get('/commission', async (req, res) => {
         COALESCE(SUM(o.total_amount), 0) AS total_sales,
         COALESCE(SUM(o.total_amount * COALESCE(NULLIF(o.commission_rate, 0), s.commission_rate) / 100), 0) AS commission
        FROM streamers s
-       LEFT JOIN orders o ON o.streamer_id = s.id AND ${where}
+       LEFT JOIN orders o ON o.streamer_id = s.id AND o.is_deleted = 0 AND ${where}
        GROUP BY s.id ORDER BY total_sales DESC`, params
     );
     res.json(rows);
@@ -56,11 +59,13 @@ router.get('/products', async (req, res) => {
       `SELECT oi.product_name, oi.product_code,
         COUNT(oi.id) AS order_count,
         COALESCE(SUM(oi.quantity), 0) AS total_qty,
-        COALESCE(SUM(oi.subtotal), 0) AS total_sales
+        COALESCE(SUM(oi.subtotal), 0) AS total_sales,
+        COALESCE(SUM(oi.quantity * COALESCE(oi.unit_cost, 0)), 0) AS total_cost
        FROM order_items oi
-       JOIN orders o ON o.id = oi.order_id
+       JOIN orders o ON o.id = oi.order_id AND o.is_deleted = 0
        WHERE ${where} GROUP BY oi.product_code, oi.product_name ORDER BY total_sales DESC`, params
     );
+    rows.forEach(r => { r.gross_profit = (r.total_sales || 0) - (r.total_cost || 0); });
     res.json(rows);
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });

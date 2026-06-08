@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
+const { notifyCustomer } = require('../services/whatsapp');
 const router = express.Router();
 router.use(authMiddleware);
 
@@ -17,37 +18,42 @@ async function logAction(shippingId, action, detail, operator) {
 // GET /api/shipping
 router.get('/', async (req, res) => {
   try {
-    const { status, date_from, date_to, order_no, customer, page = 1, page_size = 20 } = req.query;
+    const { status, date_from, date_to, order_no, customer, page = 1, page_size = 20, sort_by, sort_dir, tracking, delivery_method } = req.query;
     let where = '1=1';
     const params = [];
-    if (status === 'gigl_cancelled') {
-      where += ' AND sr.delivery_method = ? AND sr.gig_tracking != ?';
-      params.push('gig', '');
-      where += ' AND EXISTS (SELECT 1 FROM gigl_shipments gs WHERE gs.waybill = sr.gig_tracking AND gs.is_cancelled = 1)';
-    } else if (status === 'gigl_failed') {
-      where += ' AND sr.delivery_method = ? AND sr.gig_tracking != ?';
-      params.push('gig', '');
-      where += ' AND EXISTS (SELECT 1 FROM gigl_shipments gs WHERE gs.waybill = sr.gig_tracking AND gs.is_delivered = 0 AND gs.is_cancelled = 0 AND EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = gs.waybill AND te.status_code = \'DFA\'))';
-    } else if (status) {
+    // Shipping 页签筛选：sr.status 已被 Step 4 从 tracking_events 精确同步
+    // ENUM: pending | in_transit | delivered | cancelled | failed | voided
+    // SSC→cancelled, DFA→failed, OKC/OKT→delivered, others→in_transit
+    if (status) {
       where += ' AND sr.status = ?'; params.push(status);
     }
     if (order_no) { where += ' AND o.order_no LIKE ?'; params.push('%'+order_no+'%'); }
     if (customer) { where += ' AND (o.customer_name LIKE ? OR o.customer_phone LIKE ?)'; params.push('%'+customer+'%', '%'+customer+'%'); }
+    if (tracking) { where += ' AND sr.gig_tracking LIKE ?'; params.push('%'+tracking+'%'); }
+    if (delivery_method) { where += ' AND sr.delivery_method = ?'; params.push(delivery_method); }
     if (date_from) { where += ' AND COALESCE(o.order_time, o.created_at) >= ?'; params.push(date_from); }
     if (date_to) { where += ' AND COALESCE(o.order_time, o.created_at) <= ?'; params.push(date_to + ' 23:59:59'); }
 
+    const allowedSort = { order_no: 'o.order_no', created_at: 'o.created_at', order_time: 'o.order_time', status: 'sr.status' };
+    const sortCol = allowedSort[sort_by] || 'COALESCE(sr.initiated_at, o.created_at)';
+    const sortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
+
     const [rows] = await pool.query(
-      `SELECT sr.*, o.order_no, o.order_time, o.created_at AS order_created_at,
+      `SELECT sr.id, sr.order_id, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
+        sr.delivery_staff_id, sr.status, sr.initiated_at, sr.updated_at,
+        sr.shipped_at, sr.returned_at, sr.updated_by,
+        ds.name AS delivery_staff_name,
+        o.order_no, o.order_time, o.created_at AS order_created_at,
         o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
-        ds.name AS delivery_staff_name, o.streamer_id
-       FROM shipping_records sr
-       JOIN orders o ON sr.order_id = o.id
+        o.streamer_id
+       FROM orders o
+       LEFT JOIN shipping_records sr ON sr.order_id = o.id
        LEFT JOIN delivery_staff ds ON sr.delivery_staff_id = ds.id
-       WHERE ${where} ORDER BY sr.initiated_at DESC LIMIT ? OFFSET ?`,
+       WHERE o.is_deleted = 0 AND ${where} ORDER BY ${sortCol} ${sortDir} LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
     );
     const [countRows] = await pool.query(
-      `SELECT COUNT(*) AS total FROM shipping_records sr JOIN orders o ON sr.order_id = o.id WHERE ${where}`, params);
+      `SELECT COUNT(*) AS total FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id WHERE o.is_deleted = 0 AND ${where}`, params);
     res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
@@ -105,9 +111,11 @@ router.post('/:id/action', async (req, res) => {
     const rec = rows[0];
 
     const validActions = {
-      pending: ['confirm_ship'],
-      in_transit: ['deliver', 'return', 'reassign'],
-      delivered: ['return'],
+      pending: ['confirm_ship', 'void', 'reset_method'],
+      in_transit: ['deliver', 'reassign', 'void'],
+      delivered: ['reassign', 'void'],
+      cancelled: ['reassign', 'void'],
+      failed: ['reassign', 'void'],
     };
     if (!validActions[rec.status] || !validActions[rec.status].includes(action)) {
       return res.status(400).json({ message: `Cannot ${action} in ${rec.status} status` });
@@ -136,13 +144,57 @@ router.post('/:id/action', async (req, res) => {
     }
     else if (action === 'deliver') newStatus = 'delivered';
     else if (action === 'return') { newStatus = 'returned'; setExtra = ', returned_at = NOW()'; }
-    else if (action === 'reassign') { newStatus = 'pending'; }
+    else if (action === 'reassign') {
+      // Release the old waybill's matched_shipping_id BEFORE clearing tracking
+      if (rec.gig_tracking) {
+        await pool.query('UPDATE gigl_shipments SET matched_shipping_id = NULL WHERE waybill = ?', [rec.gig_tracking]);
+      }
+      newStatus = 'pending'; setExtra = ', gig_tracking = \'\', delivery_method = \'reassigned\', shipped_at = NULL';
+    }
+    else if (action === 'reset_method') {
+      newStatus = 'pending'; setExtra = ', delivery_method = NULL';
+    }
+    else if (action === 'void') {
+      const reason = req.body.reason || '';
+      if (!reason.trim()) return res.status(400).json({ message: 'Reason is required to void an order' });
+      newStatus = 'voided'; setExtra = ', gig_tracking = \'\', shipped_at = NULL';
+    }
 
     await pool.query(`UPDATE shipping_records SET status = ?, updated_at = NOW(), updated_by = ? ${setExtra} WHERE id = ?`, [newStatus, operator || '', rec.id]);
 
     // Log
-    const detail = (action === 'confirm_ship' && delivery_method) ? 'Method: ' + delivery_method.toUpperCase() : '';
-    await logAction(rec.id, action, detail, operator);
+    let logDetail = '';
+    if (action === 'confirm_ship' && delivery_method) { logDetail = 'Method: ' + delivery_method.toUpperCase(); }
+    else if (action === 'void') { logDetail = 'Reason: ' + (req.body.reason || ''); }
+    await logAction(rec.id, action, logDetail, operator);
+
+    // OWN delivery tracking events — record timeline for OWN orders
+    const finalMethod = delivery_method || rec.delivery_method;
+    if (finalMethod === 'own') {
+      const [orderRow] = await pool.query('SELECT customer_address FROM orders WHERE id = ?', [rec.order_id]);
+      const custAddr = orderRow.length > 0 ? (orderRow[0].customer_address || 'LAGOS') : 'LAGOS';
+      if (action === 'confirm_ship') {
+        await pool.query(
+          'INSERT INTO shipping_tracking_events (shipping_id, event_time, location, status_code, status_description, action, operator) VALUES (?, NOW(), ?, ?, ?, ?, ?)',
+          [rec.id, 'LAGOS', 'CRT', 'SHIPMENT CREATED', 'confirm_ship', operator || '']
+        );
+      } else if (action === 'deliver') {
+        await pool.query(
+          'INSERT INTO shipping_tracking_events (shipping_id, event_time, location, status_code, status_description, action, operator) VALUES (?, NOW(), ?, ?, ?, ?, ?)',
+          [rec.id, custAddr, 'OKC', 'DELIVERED TO CUSTOMER', 'deliver', operator || '']
+        );
+      } else if (action === 'return') {
+        await pool.query(
+          'INSERT INTO shipping_tracking_events (shipping_id, event_time, location, status_code, status_description, action, operator) VALUES (?, NOW(), ?, ?, ?, ?, ?)',
+          [rec.id, custAddr, 'DFA', 'Delivery Unsuccessful', 'return', operator || '']
+        );
+      }
+    }
+
+    // WhatsApp notification (Meta Cloud API — fire-and-forget)
+    if (newStatus === 'in_transit' || newStatus === 'delivered') {
+      notifyCustomer(pool, rec.id, newStatus);
+    }
 
     res.json({ message: 'Status updated', status: newStatus });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
@@ -153,6 +205,17 @@ router.get('/:id/logs', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM shipping_logs WHERE shipping_id=? ORDER BY created_at DESC', [req.params.id]);
     res.json(rows);
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
+// GET /api/shipping/:id/tracking — OWN delivery tracking timeline
+router.get('/:id/tracking', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM shipping_tracking_events WHERE shipping_id = ? ORDER BY event_time ASC',
+      [req.params.id]
+    );
+    res.json({ events: rows });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
