@@ -8,7 +8,7 @@
       <div style="display:flex;gap:8px">
         <el-button @click="doRefresh" :loading="refreshing" :disabled="refreshCooldown > 0">{{ refreshCooldown > 0 ? 'Wait '+refreshCooldown+'s' : 'Refresh' }}</el-button>
         <el-button @click="exportCSV" :disabled="!selectedRows.length">Export Excel</el-button>
-        <el-button class="btn-dark" @click="$router.push('/orders/new')">+ New Order</el-button>
+        <el-button class="btn-dark" @click="$router.push('/Livestream_Management/orders/new')">+ New Order</el-button>
       </div>
     </div>
     <div class="page-card">
@@ -81,7 +81,7 @@
       </el-table-column>
       <el-table-column label="Actions" width="140" fixed="right">
         <template #default="{row}">
-          <el-button link type="primary" size="small" @click="$router.push(`/orders/${row.id}/edit`)">Edit</el-button>
+          <el-button link type="primary" size="small" @click="$router.push(`/Livestream_Management/orders/${row.id}/edit`)">Edit</el-button>
           <el-button link type="primary" size="small" @click="viewDetail(row)">View</el-button>
           <el-popconfirm v-if="isAdmin" title="Delete?" @confirm="handleDelete(row.id)">
             <template #reference><el-button link type="danger" size="small">Del</el-button></template>
@@ -166,8 +166,8 @@ async function viewDetail(row) {
 }
 
 function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }
-function fmtDate(d) { if (!d) return '-'; return new Date(d).toISOString().slice(0,10) }
-function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toISOString().slice(0,10) + ' ' + t.toTimeString().slice(0,8) }
+function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-CA') }
+function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-CA') + ' ' + t.toTimeString().slice(0,8) }
 function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger' }[s] || 'info' }
 
 // Refresh with 60s throttle

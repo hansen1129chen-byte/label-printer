@@ -32,7 +32,7 @@ async function handleLogin() {
   try {
     const { data } = await api.post('/auth/login', { username: username.value, password: password.value })
     setToken(data.token); setUser(data.user)
-    router.replace('/orders')
+    router.replace('/Livestream_Management/orders')
   } catch (err) { error.value = err.response?.data?.message || 'Login failed' }
   finally { loading.value = false }
 }
