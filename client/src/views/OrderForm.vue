@@ -20,7 +20,7 @@
       <el-table :data="items" border size="small">
         <el-table-column label="Product" min-width="170">
           <template #default="{row, $index}">
-            <el-select v-model="row.product_id" placeholder="Select product" filterable @change="onProductChange($index)" style="width:100%">
+            <el-select v-model="row.product_id" placeholder="Select product" filterable @change="(val) => onProductChange($index, val)" style="width:100%">
               <el-option v-for="p in availableProducts($index)" :key="p.id" :label="`${p.code} - ${p.name} (₦${Number(p.price).toLocaleString()})`" :value="p.id" />
             </el-select>
           </template>
@@ -43,7 +43,7 @@
       <el-button size="small" style="margin-top:8px" @click="addItem">+ Add Product</el-button>
 
       <el-row :gutter="16" style="margin-top:16px">
-        <el-col :span="8"><el-form-item label="Total Amount"><div class="total-display">₦{{ fmtNaira(totalAmount) }}</div></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Total Amount"><el-input :model-value="'₦' + fmtNaira(totalAmount)" disabled /></el-form-item></el-col>
         <el-col :span="8"><el-form-item label="Actual Amount"><el-input-number v-model="form.actual_amount" :min="0" :step="100" style="width:100%" /></el-form-item></el-col>
       </el-row>
 
@@ -121,10 +121,11 @@ function availableProducts(idx) {
   return products.value.filter(p => !selected.includes(p.id))
 }
 
-function onProductChange(idx) {
+function onProductChange(idx, val) {
   const item = items.value[idx]
-  if (item.product_id) {
-    const p = products.value.find(p => p.id === item.product_id)
+  const pid = val !== undefined ? val : item.product_id
+  if (pid) {
+    const p = products.value.find(p => p.id === pid)
     if (p) { item.unit_price = p.price; item.subtotal = p.price * (item.quantity || 1) }
   } else { item.unit_price = 0; item.subtotal = 0 }
 }
@@ -176,7 +177,3 @@ onMounted(async () => {
   if (isEdit.value) await loadOrder()
 })
 </script>
-
-<style scoped>
-.total-display { font-size:16px; font-weight:700; color:#303133; padding-top:4px; }
-</style>
