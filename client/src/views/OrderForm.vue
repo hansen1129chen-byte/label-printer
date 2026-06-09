@@ -43,8 +43,8 @@
       <el-button size="small" style="margin-top:8px" @click="addItem">+ Add Product</el-button>
 
       <el-row :gutter="16" style="margin-top:16px">
-        <el-col :span="8"><el-form-item label="Total Amount"><el-input :model-value="'₦' + totalAmount.toLocaleString()" disabled /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="Actual Amount"><el-input-number v-model="form.actual_amount" :min="0" :max="totalAmount" :step="100" style="width:100%" /></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Total Amount"><div class="total-display">₦{{ fmtNaira(totalAmount) }}</div></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Actual Amount"><el-input-number v-model="form.actual_amount" :min="0" :step="100" style="width:100%" /></el-form-item></el-col>
       </el-row>
 
       <!-- Payment Proof Upload -->
@@ -97,12 +97,13 @@ const items = ref([{ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }
 
 const form = ref({
   customer_name: '', customer_gender: '', customer_phone: '', customer_address: '',
-  streamer_id: null, payment_status_id: null, actual_amount: 0,
+  streamer_id: null, payment_status_id: 1, actual_amount: 0,
   order_time: new Date().toISOString().slice(0, 10),
   payment_image: ''
 })
 
 const totalAmount = computed(() => items.value.reduce((s, i) => s + (i.subtotal || 0), 0))
+function fmtNaira(v) { const n = Number(v); return isNaN(n) ? '0' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
 // Payment image upload
 const uploadUrl = '/api/orders/upload-payment'
@@ -175,3 +176,7 @@ onMounted(async () => {
   if (isEdit.value) await loadOrder()
 })
 </script>
+
+<style scoped>
+.total-display { font-size:16px; font-weight:700; color:#303133; padding-top:4px; }
+</style>
