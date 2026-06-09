@@ -62,13 +62,11 @@ router.get('/alert', adminOnly, async (req, res) => {
 
 router.put('/alert', adminOnly, async (req, res) => {
   try {
-    const { pending_alert_hours, in_transit_alert_hours } = req.body;
-    if (pending_alert_hours !== undefined) {
-      await pool.query('INSERT INTO alert_config (config_key, config_value) VALUES (?,?) ON DUPLICATE KEY UPDATE config_value=?', ['pending_alert_hours', String(pending_alert_hours), String(pending_alert_hours)]);
-    }
-    if (in_transit_alert_hours !== undefined) {
-      await pool.query('INSERT INTO alert_config (config_key, config_value) VALUES (?,?) ON DUPLICATE KEY UPDATE config_value=?', ['in_transit_alert_hours', String(in_transit_alert_hours), String(in_transit_alert_hours)]);
-    }
+    const { pending_alert_hours, in_transit_own_alert_hours, in_transit_gigl_alert_hours } = req.body;
+    const setKV = (k, v) => pool.query('INSERT INTO alert_config (config_key, config_value) VALUES (?,?) ON DUPLICATE KEY UPDATE config_value=?', [k, String(v), String(v)]);
+    if (pending_alert_hours !== undefined) await setKV('pending_alert_hours', pending_alert_hours);
+    if (in_transit_own_alert_hours !== undefined) await setKV('in_transit_own_alert_hours', in_transit_own_alert_hours);
+    if (in_transit_gigl_alert_hours !== undefined) await setKV('in_transit_gigl_alert_hours', in_transit_gigl_alert_hours);
     res.json({ message: 'Saved' });
   } catch (err) { res.status(500).json({ message: 'Server error' }); }
 });

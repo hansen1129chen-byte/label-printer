@@ -36,19 +36,20 @@ router.get('/', async (req, res) => {
     const alertCfg = {};
     alertRows.forEach(r => { alertCfg[r.config_key] = parseInt(r.config_value) || 0; });
     const pendingAlert = alertCfg.pending_alert_hours || 24;
-    const transitAlert = alertCfg.in_transit_alert_hours || 72;
+    const transitOwnAlert = alertCfg.in_transit_own_alert_hours || 48;
+    const transitGiglAlert = alertCfg.in_transit_gigl_alert_hours || 120;
 
     const allowedSort = { order_no: 'o.order_no', created_at: 'o.created_at', order_time: 'o.order_time', status: 'sr.status' };
     const sortCol = allowedSort[sort_by] || 'COALESCE(sr.initiated_at, o.created_at)';
     const sortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
 
     const durationExpr = `CASE
-      WHEN sr.status = 'pending' THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.initiated_at, o.created_at), NOW())
-      WHEN sr.status = 'in_transit' THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.shipped_at, sr.initiated_at), NOW())
+      WHEN sr.status IN ('pending','in_transit') THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW())
       ELSE 0 END`;
     const overdueExpr = `CASE
-      WHEN sr.status = 'pending' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.initiated_at, o.created_at), NOW()) >= ${pendingAlert} THEN 1
-      WHEN sr.status = 'in_transit' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.shipped_at, sr.initiated_at), NOW()) >= ${transitAlert} THEN 1
+      WHEN sr.status = 'pending' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW()) >= ${pendingAlert} THEN 1
+      WHEN sr.status = 'in_transit' AND sr.delivery_method = 'own' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitOwnAlert} THEN 1
+      WHEN sr.status = 'in_transit' AND sr.delivery_method = 'gig' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitGiglAlert} THEN 1
       ELSE 0 END`;
 
     const [rows] = await pool.query(
@@ -87,7 +88,7 @@ router.post('/', async (req, res) => {
       if (ds.length > 0) staffName = ds[0].name;
     }
     await pool.query(
-      'INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, delivery_staff_id, delivery_staff_name) VALUES (?,?,?,?,?,?)',
+      'INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, delivery_staff_id, delivery_staff_name, status_since) VALUES (?,?,?,?,?,?, NOW())',
       [order_id, code, delivery_method, gig_tracking || '', delivery_method === 'own' ? delivery_staff_id : null, staffName]
     );
     res.status(201).json({ code });
@@ -175,7 +176,7 @@ router.post('/:id/action', async (req, res) => {
       newStatus = 'voided'; setExtra = ', gig_tracking = \'\', shipped_at = NULL';
     }
 
-    await pool.query(`UPDATE shipping_records SET status = ?, updated_at = NOW(), updated_by = ? ${setExtra} WHERE id = ?`, [newStatus, operator || '', rec.id]);
+    await pool.query(`UPDATE shipping_records SET status = ?, status_since = NOW(), updated_at = NOW(), updated_by = ? ${setExtra} WHERE id = ?`, [newStatus, operator || '', rec.id]);
 
     // Log
     let logDetail = '';

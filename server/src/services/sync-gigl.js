@@ -375,7 +375,7 @@ async function syncGiglOrders() {
 
         if (isDelivered(trackData)) {
           await pool.query(
-            `UPDATE shipping_records SET status = 'delivered', updated_at = NOW(), updated_by = 'GIGL'
+            `UPDATE shipping_records SET status = 'delivered', status_since = NOW(), updated_at = NOW(), updated_by = 'GIGL'
              WHERE id = ? AND status IN ('pending', 'in_transit')`,
             [existing.id]
           );
@@ -385,7 +385,7 @@ async function syncGiglOrders() {
           deliveryCount++;
         } else if (oldStatus === 'pending') {
           await pool.query(
-            `UPDATE shipping_records SET status = 'in_transit', updated_by = 'GIGL'
+            `UPDATE shipping_records SET status = 'in_transit', status_since = NOW(), updated_by = 'GIGL'
              WHERE id = ? AND status = 'pending'`,
             [existing.id]
           );
@@ -434,7 +434,7 @@ async function syncGiglOrders() {
 
         if (isDelivered(trackData)) {
           await pool.query(
-            `UPDATE shipping_records SET status = 'delivered', updated_by = 'GIGL', updated_at = NOW()
+            `UPDATE shipping_records SET status = 'delivered', status_since = NOW(), updated_by = 'GIGL', updated_at = NOW()
              WHERE id = ?`,
             [match.id]
           );
@@ -443,7 +443,7 @@ async function syncGiglOrders() {
           deliveryCount++;
         } else {
           await pool.query(
-            `UPDATE shipping_records SET status = 'in_transit', updated_by = 'GIGL'
+            `UPDATE shipping_records SET status = 'in_transit', status_since = NOW(), updated_by = 'GIGL'
              WHERE id = ? AND status = 'pending'`,
             [match.id]
           );
@@ -489,7 +489,7 @@ async function syncGiglOrders() {
 
         if (isDelivered(trackData) && row.status !== 'delivered') {
           await pool.query(
-            `UPDATE shipping_records SET status = 'delivered', updated_at = NOW(), updated_by = 'GIGL'
+            `UPDATE shipping_records SET status = 'delivered', status_since = NOW(), updated_at = NOW(), updated_by = 'GIGL'
              WHERE id = ?`,
             [row.id]
           );
@@ -528,23 +528,23 @@ async function syncGiglOrders() {
     // OWN 订单不受影响（只更新 delivery_method='gig' 的记录）。
     // ★ Step 4 never touches voided orders — they stay voided permanently ★
     const [statusDd] = await pool.query(
-      `UPDATE shipping_records sr SET sr.status = 'delivered'
+      `UPDATE shipping_records sr SET sr.status = 'delivered', sr.status_since = NOW()
        WHERE sr.delivery_method = 'gig' AND sr.status != 'delivered' AND sr.status != 'voided'
          AND EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code IN ('OKC','OKT'))`
     );
     const [statusCxl] = await pool.query(
-      `UPDATE shipping_records sr SET sr.status = 'cancelled'
+      `UPDATE shipping_records sr SET sr.status = 'cancelled', sr.status_since = NOW()
        WHERE sr.delivery_method = 'gig' AND sr.status NOT IN ('delivered','cancelled','failed','voided')
          AND EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code = 'SSC')`
     );
     const [statusFail] = await pool.query(
-      `UPDATE shipping_records sr SET sr.status = 'failed'
+      `UPDATE shipping_records sr SET sr.status = 'failed', sr.status_since = NOW()
        WHERE sr.delivery_method = 'gig' AND sr.status NOT IN ('delivered','cancelled','failed','voided')
          AND EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code = 'DFA')
          AND NOT EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code IN ('OKC','OKT'))`
     );
     const [statusTransit] = await pool.query(
-      `UPDATE shipping_records sr SET sr.status = 'in_transit'
+      `UPDATE shipping_records sr SET sr.status = 'in_transit', sr.status_since = NOW()
        WHERE sr.delivery_method = 'gig' AND sr.status = 'pending'
          AND EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking)
          AND NOT EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code IN ('OKC','OKT','SSC','DFA'))`
