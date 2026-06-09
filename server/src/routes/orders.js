@@ -333,23 +333,52 @@ router.post('/', async (req, res) => {
 
 // PUT /api/orders/:id
 router.put('/:id', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
-    const { customer_name, customer_gender, customer_phone, customer_address, order_time, streamer_id, payment_status_id, actual_amount, payment_image } = req.body;
-    const [orderRows] = await pool.query('SELECT total_amount FROM orders WHERE id=?',[req.params.id]);
-    if (orderRows.length===0) return res.status(404).json({ message: 'Not found' });
-    const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),orderRows[0].total_amount) : undefined;
-    const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_address=?','streamer_id=?','payment_status_id=?','actual_amount=?'];
-    const values = [customer_name,customer_gender,customer_phone,customer_address,streamer_id,payment_status_id,actual!=null?actual:orderRows[0].total_amount];
+    const { customer_name, customer_gender, customer_phone, customer_address, order_time, streamer_id, payment_status_id, actual_amount, payment_image, items } = req.body;
+    const [orderRows] = await conn.query('SELECT total_amount FROM orders WHERE id=?',[req.params.id]);
+    if (orderRows.length===0) { conn.release(); return res.status(404).json({ message: 'Not found' }); }
+
+    // Recalculate total_amount from items if provided
+    let total = orderRows[0].total_amount;
+    if (items && Array.isArray(items) && items.length > 0) {
+      total = 0;
+      for (const item of items) {
+        const [prodRows] = await conn.query('SELECT * FROM products WHERE id=?',[item.product_id]);
+        if (prodRows.length===0) { conn.release(); return res.status(400).json({ message: 'Product not found' }); }
+        const p = prodRows[0]; const qty = parseInt(item.quantity)||1;
+        total += parseFloat(p.price)*qty;
+      }
+    }
+
+    const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),total) : total;
+    const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_address=?','streamer_id=?','payment_status_id=?','actual_amount=?','total_amount=?'];
+    const values = [customer_name,customer_gender,customer_phone,customer_address,streamer_id,payment_status_id,actual,total];
     if (order_time) { updates.push('order_time=?'); values.push(order_time); }
     if (payment_status_id) {
-      const [ps] = await pool.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]);
+      const [ps] = await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]);
       if (ps.length>0) { updates.push('payment_status_name=?'); values.push(ps[0].name); }
     }
     if (payment_image !== undefined) { updates.push('payment_image=?'); values.push(payment_image); }
     values.push(req.params.id);
-    await pool.query('UPDATE orders SET '+updates.join(',')+' WHERE id=?', values);
+    await conn.query('UPDATE orders SET '+updates.join(',')+' WHERE id=?', values);
+
+    // Replace order items
+    if (items && Array.isArray(items) && items.length > 0) {
+      await conn.query('DELETE FROM order_items WHERE order_id=?',[req.params.id]);
+      for (const item of items) {
+        const [prodRows] = await conn.query('SELECT * FROM products WHERE id=?',[item.product_id]);
+        if (prodRows.length===0) continue;
+        const p = prodRows[0]; const qty = parseInt(item.quantity)||1;
+        const subtotal = parseFloat(p.price)*qty;
+        await conn.query('INSERT INTO order_items (order_id,product_id,product_code,product_name,unit_price,unit_cost,quantity,subtotal) VALUES (?,?,?,?,?,?,?,?)',
+          [req.params.id,p.id,p.code,p.name,p.price,p.cost||0,qty,subtotal]);
+      }
+    }
+
+    conn.release();
     res.json({ message: 'Updated' });
-  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+  } catch (err) { conn.release(); console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
 // DELETE /api/orders/:id - admin only
