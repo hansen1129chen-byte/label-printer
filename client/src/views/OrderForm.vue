@@ -169,6 +169,12 @@ async function loadOrder() {
 // Auto-sync actual_amount with total for new orders
 watch(totalAmount, (v) => { if (!isEdit.value) form.value.actual_amount = v })
 
+// Watch product_id & quantity changes — more reliable than @change event
+watch(
+  () => items.value.map(i => i.product_id).join(',') + '|' + items.value.map(i => i.quantity).join(','),
+  () => calcTotal()
+)
+
 onMounted(async () => {
   const [{ data: s }, { data: ps }, { data: pr }] = await Promise.all([
     api.get('/config/streamers'), api.get('/config/payment_statuses'), api.get('/products')
