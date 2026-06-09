@@ -21,9 +21,6 @@ router.get('/', async (req, res) => {
     const { status, date_from, date_to, order_no, customer, page = 1, page_size = 20, sort_by, sort_dir, tracking, delivery_method } = req.query;
     let where = '1=1';
     const params = [];
-    // Shipping 页签筛选：sr.status 已被 Step 4 从 tracking_events 精确同步
-    // ENUM: pending | in_transit | delivered | cancelled | failed | voided
-    // SSC→cancelled, DFA→failed, OKC/OKT→delivered, others→in_transit
     if (status) {
       where += ' AND sr.status = ?'; params.push(status);
     }
@@ -34,9 +31,25 @@ router.get('/', async (req, res) => {
     if (date_from) { where += ' AND COALESCE(o.order_time, o.created_at) >= ?'; params.push(date_from); }
     if (date_to) { where += ' AND COALESCE(o.order_time, o.created_at) <= ?'; params.push(date_to + ' 23:59:59'); }
 
+    // Fetch alert thresholds
+    const [alertRows] = await pool.query('SELECT config_key, config_value FROM alert_config');
+    const alertCfg = {};
+    alertRows.forEach(r => { alertCfg[r.config_key] = parseInt(r.config_value) || 0; });
+    const pendingAlert = alertCfg.pending_alert_hours || 24;
+    const transitAlert = alertCfg.in_transit_alert_hours || 72;
+
     const allowedSort = { order_no: 'o.order_no', created_at: 'o.created_at', order_time: 'o.order_time', status: 'sr.status' };
     const sortCol = allowedSort[sort_by] || 'COALESCE(sr.initiated_at, o.created_at)';
     const sortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
+
+    const durationExpr = `CASE
+      WHEN sr.status = 'pending' THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.initiated_at, o.created_at), NOW())
+      WHEN sr.status = 'in_transit' THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.shipped_at, sr.initiated_at), NOW())
+      ELSE 0 END`;
+    const overdueExpr = `CASE
+      WHEN sr.status = 'pending' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.initiated_at, o.created_at), NOW()) >= ${pendingAlert} THEN 1
+      WHEN sr.status = 'in_transit' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.shipped_at, sr.initiated_at), NOW()) >= ${transitAlert} THEN 1
+      ELSE 0 END`;
 
     const [rows] = await pool.query(
       `SELECT sr.id, sr.order_id, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
@@ -45,11 +58,13 @@ router.get('/', async (req, res) => {
         ds.name AS delivery_staff_name,
         o.order_no, o.order_time, o.created_at AS order_created_at,
         o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
-        o.streamer_id
+        o.streamer_id,
+        ${durationExpr} AS duration_hours,
+        ${overdueExpr} AS is_overdue
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
        LEFT JOIN delivery_staff ds ON sr.delivery_staff_id = ds.id
-       WHERE o.is_deleted = 0 AND ${where} ORDER BY ${sortCol} ${sortDir} LIMIT ? OFFSET ?`,
+       WHERE o.is_deleted = 0 AND ${where} ORDER BY is_overdue DESC, ${sortCol} ${sortDir} LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
     );
     const [countRows] = await pool.query(

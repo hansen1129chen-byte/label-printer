@@ -38,6 +38,20 @@
           </el-table-column>
         </el-table>
       </el-tab-pane>
+
+      <!-- Warning -->
+      <el-tab-pane label="Warning">
+        <p style="font-size:13px;color:var(--fg-muted);margin-bottom:12px">Set alert thresholds (hours). Orders exceeding these limits will be pinned to the top of the shipping list.</p>
+        <el-form label-position="top" style="max-width:400px">
+          <el-form-item label="Pending Alert (hours)">
+            <el-input-number v-model="alertCfg.pending_alert_hours" :min="1" :max="999" :step="1" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="In Transit Alert (hours)">
+            <el-input-number v-model="alertCfg.in_transit_alert_hours" :min="1" :max="999" :step="1" style="width:100%" />
+          </el-form-item>
+          <el-button type="primary" :loading="alertSaving" @click="saveAlert">Save</el-button>
+        </el-form>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- Edit Dialog -->
@@ -100,5 +114,11 @@ async function handleSave() {
 
 async function handleDelete(type, id) { await api.delete(`/config/${type}/${id}`); loadAll() }
 
-onMounted(loadAll)
+// Alert config
+const alertCfg = ref({ pending_alert_hours: 24, in_transit_alert_hours: 72 })
+const alertSaving = ref(false)
+async function loadAlert() { try { const { data } = await api.get('/config/alert'); alertCfg.value.pending_alert_hours = parseInt(data.pending_alert_hours) || 24; alertCfg.value.in_transit_alert_hours = parseInt(data.in_transit_alert_hours) || 72 } catch {} }
+async function saveAlert() { alertSaving.value = true; try { await api.put('/config/alert', alertCfg.value); ElMessage.success('Saved') } catch { ElMessage.error('Failed') } finally { alertSaving.value = false } }
+
+onMounted(() => { loadAll(); loadAlert() })
 </script>

@@ -42,6 +42,11 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
+      <el-table-column label="Duration" width="100">
+        <template #default="{row}">
+          <span :class="{ 'overdue-tag': row.is_overdue }">{{ fmtDuration(row.duration_hours) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="Order Date" width="110"><template #default="{row}">{{ row.order_created_at?.slice(0,10) }}</template></el-table-column>
       <el-table-column label="Shipped" width="110"><template #default="{row}">{{ row.shipped_at?.slice(0,10) || '-' }}</template></el-table-column>
       <el-table-column label="Actions" width="220" fixed="right">
@@ -197,6 +202,7 @@ const dateTo = ref(defaultDateTo())
 
 function fmtDate(d) { return fmtD(d) }
 function fmtDateTime(d) { return fmtDT(d) }
+function fmtDuration(h) { if (h == null || h < 0) return '-'; if (h < 1) return '< 1h'; const d = Math.floor(h / 24); const r = h % 24; if (d > 0) return d + 'd ' + r + 'h'; return r + 'h' }
 
 async function loadList() {
   loading.value = true
@@ -335,3 +341,7 @@ onMounted(async () => {
   deliveryStaff.value = data
 })
 </script>
+
+<style scoped>
+.overdue-tag { background:#fef0f0; color:#f56c6c; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap; }
+</style>

@@ -50,4 +50,27 @@ Object.entries(tables).forEach(([key, cfg]) => {
   });
 });
 
+// Alert config — key-value settings for shipping time warnings
+router.get('/alert', adminOnly, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT config_key, config_value FROM alert_config ORDER BY id');
+    const cfg = {};
+    rows.forEach(r => { cfg[r.config_key] = r.config_value; });
+    res.json(cfg);
+  } catch (err) { res.status(500).json({ message: 'Server error' }); }
+});
+
+router.put('/alert', adminOnly, async (req, res) => {
+  try {
+    const { pending_alert_hours, in_transit_alert_hours } = req.body;
+    if (pending_alert_hours !== undefined) {
+      await pool.query('INSERT INTO alert_config (config_key, config_value) VALUES (?,?) ON DUPLICATE KEY UPDATE config_value=?', ['pending_alert_hours', String(pending_alert_hours), String(pending_alert_hours)]);
+    }
+    if (in_transit_alert_hours !== undefined) {
+      await pool.query('INSERT INTO alert_config (config_key, config_value) VALUES (?,?) ON DUPLICATE KEY UPDATE config_value=?', ['in_transit_alert_hours', String(in_transit_alert_hours), String(in_transit_alert_hours)]);
+    }
+    res.json({ message: 'Saved' });
+  } catch (err) { res.status(500).json({ message: 'Server error' }); }
+});
+
 module.exports = router;
