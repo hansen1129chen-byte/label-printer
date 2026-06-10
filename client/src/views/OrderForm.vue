@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
@@ -115,6 +115,19 @@ function beforeUpload(file) {
 }
 function onUploadSuccess(res) { form.value.payment_image = res.url; ElMessage.success('Uploaded') }
 function onUploadError() { ElMessage.error('Upload failed') }
+
+// Ctrl+V paste image as payment proof
+async function onPaste(e) {
+  const file = e.clipboardData?.files?.[0]
+  if (!file || !file.type.startsWith('image/')) return
+  e.preventDefault()
+  const fd = new FormData(); fd.append('image', file)
+  try {
+    const res = await fetch(uploadUrl, { method: 'POST', headers: { Authorization: 'Bearer ' + getToken() }, body: fd })
+    const data = await res.json()
+    if (data.url) { form.value.payment_image = data.url; ElMessage.success('Pasted!') }
+  } catch { ElMessage.error('Paste failed') }
+}
 
 function availableProducts(idx) {
   const selected = items.value.filter((_, i) => i !== idx).map(i => i.product_id)
@@ -181,5 +194,7 @@ onMounted(async () => {
   ])
   streamers.value = s; payStatuses.value = ps; products.value = pr.list || pr
   if (isEdit.value) await loadOrder()
+  document.addEventListener('paste', onPaste)
 })
+onUnmounted(() => document.removeEventListener('paste', onPaste))
 </script>
