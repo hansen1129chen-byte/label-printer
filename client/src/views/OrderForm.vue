@@ -154,9 +154,11 @@ async function handleSave() {
   }
   if (!/^\d{11}$/.test(f.customer_phone)) { ElMessage.warning('Phone must be 11 digits'); return }
   if (items.value.some(i => !i.product_id)) { ElMessage.warning('Select products'); return }
+  if (f.payment_status_id === 1 && !f.payment_image) { ElMessage.warning('PAID orders require payment proof'); return }
   saving.value = true
+  const actual = f.actual_amount != null && f.actual_amount > 0 ? f.actual_amount : totalAmount.value
   const payload = {
-    ...form.value, actual_amount: form.value.actual_amount || totalAmount.value,
+    ...form.value, actual_amount: actual,
     items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity }))
   }
   try {
@@ -174,7 +176,7 @@ async function loadOrder() {
     customer_name: data.customer_name, customer_gender: data.customer_gender,
     customer_phone: data.customer_phone, customer_address: data.customer_address,
     streamer_id: data.streamer_id, payment_status_id: data.payment_status_id,
-    actual_amount: data.actual_amount, payment_image: data.payment_image || ''
+    actual_amount: data.actual_amount, order_time: data.order_time || '', payment_image: data.payment_image || ''
   })
   items.value = data.items.map(i => ({ product_id: i.product_id, unit_price: i.unit_price, quantity: i.quantity, subtotal: i.subtotal }))
 }
