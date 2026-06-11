@@ -129,7 +129,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '../api'
 import { getUser, getToken } from '../utils/auth'
 
@@ -208,6 +209,9 @@ async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders(
 
 async function loadProducts() { const { data } = await api.get('/products', { params: { page_size: 1000 } }); products.value = data.list }
 
+const route = useRoute()
+// Reload on every entry — catches returns from edit/new
+watch(() => route.path, () => { if (route.name === 'Orders') loadOrders() })
 onMounted(() => { loadStreamers(); loadPayStatuses(); loadProducts(); loadOrders() })
 </script>
 
