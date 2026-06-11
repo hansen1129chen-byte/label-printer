@@ -27,6 +27,8 @@
       <el-select v-model="filters.payment_status_id" placeholder="Payment" clearable size="small" style="width:120px">
         <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
       </el-select>
+      <el-input v-model="filters.order_no" placeholder="Order No." clearable size="small" style="width:140px" @keyup.enter="loadOrders" />
+      <el-input v-model="filters.phone" placeholder="Phone" clearable size="small" style="width:140px" @keyup.enter="loadOrders" />
       <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
     </div>
 
@@ -141,7 +143,7 @@ const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
 import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
-const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [] })
+const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [], order_no: '', phone: '' })
 const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)
@@ -157,6 +159,8 @@ async function loadOrders() {
   if (filters.value.streamer_id) params.streamer_id = filters.value.streamer_id
   if (filters.value.payment_status_id) params.payment_status_id = filters.value.payment_status_id
   if (filters.value.product_names && filters.value.product_names.length > 0) params.product_names = filters.value.product_names.join(',')
+  if (filters.value.order_no) params.order_no = filters.value.order_no
+  if (filters.value.phone) params.phone = filters.value.phone
   const { data } = await api.get('/orders', { params })
   orders.value = data.list; total.value = data.total; loading.value = false
 }
