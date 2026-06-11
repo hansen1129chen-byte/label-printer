@@ -355,6 +355,10 @@ router.put('/:id', async (req, res) => {
     const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_address=?','streamer_id=?','payment_status_id=?','actual_amount=?','total_amount=?'];
     const values = [customer_name,customer_gender,customer_phone,customer_address,streamer_id,payment_status_id,actual,total];
     if (order_time) { updates.push('order_time=?'); values.push(order_time); }
+    if (streamer_id) {
+      const [sr] = await conn.query('SELECT name,commission_rate FROM streamers WHERE id=?',[streamer_id]);
+      if (sr.length>0) { updates.push('streamer_name=?','commission_rate=?'); values.push(sr[0].name,sr[0].commission_rate); }
+    }
     if (payment_status_id) {
       const [ps] = await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]);
       if (ps.length>0) { updates.push('payment_status_name=?'); values.push(ps[0].name); }
