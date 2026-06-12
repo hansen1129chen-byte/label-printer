@@ -431,4 +431,39 @@ router.post('/upload-payment', uploadPayment.single('image'), (req, res) => {
   res.json({ url, filename: req.file.filename });
 });
 
+// POST /api/orders/batch-streamer — batch update streamer for selected orders
+router.post('/batch-streamer', async (req, res) => {
+  try {
+    const { ids, streamer_id } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0 || !streamer_id) {
+      return res.status(400).json({ message: 'Missing ids or streamer_id' });
+    }
+    const [sr] = await pool.query('SELECT name, commission_rate FROM streamers WHERE id=?', [streamer_id]);
+    if (sr.length === 0) return res.status(400).json({ message: 'Streamer not found' });
+    const placeholders = ids.map(() => '?').join(',');
+    await pool.query(
+      `UPDATE orders SET streamer_id=?, streamer_name=?, commission_rate=? WHERE id IN (${placeholders}) AND is_deleted=0`,
+      [streamer_id, sr[0].name, sr[0].commission_rate, ...ids]
+    );
+    res.json({ message: 'Updated', count: ids.length });
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
+// GET /api/orders/last-streamer?phone=xxx — get last streamer for returning customer
+router.get('/last-streamer', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) return res.json({ found: false });
+    const [rows] = await pool.query(
+      'SELECT streamer_id, streamer_name FROM orders WHERE customer_phone = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 1',
+      [phone]
+    );
+    if (rows.length > 0) {
+      res.json({ found: true, streamer_id: rows[0].streamer_id, streamer_name: rows[0].streamer_name });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
 module.exports = router;

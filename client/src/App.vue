@@ -19,6 +19,7 @@
         <el-aside width="240px" class="app-sidebar">
           <el-menu :default-active="activeMenu" router>
             <el-menu-item :index="B+'/orders'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Orders</template></el-menu-item>
+            <el-menu-item :index="B+'/customers'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Customers</template></el-menu-item>
             <el-menu-item :index="B+'/shipping'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Shipping</template></el-menu-item>
           <el-menu-item :index="B+'/gigl'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> GIGL</template></el-menu-item>
             <el-menu-item :index="B+'/products'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Products</template></el-menu-item>
@@ -62,6 +63,7 @@ const showLayout = computed(() => route.path !== (B + '/login') && route.path !=
 const activeMenu = computed(() => {
   const p = route.path
   if (p.startsWith(B + '/orders')) return B + '/orders'
+  if (p.startsWith(B + '/customers')) return B + '/customers'
   if (p.startsWith(B + '/shipping')) return B + '/shipping'
   if (p.startsWith(B + '/gigl')) return B + '/gigl'
   if (p.startsWith(B + '/products')) return B + '/products'

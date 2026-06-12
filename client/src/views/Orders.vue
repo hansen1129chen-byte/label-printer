@@ -8,6 +8,7 @@
       <div style="display:flex;gap:8px">
         <el-button @click="doRefresh" :loading="refreshing" :disabled="refreshCooldown > 0">{{ refreshCooldown > 0 ? 'Wait '+refreshCooldown+'s' : 'Refresh' }}</el-button>
         <el-button @click="exportCSV" :disabled="!selectedRows.length">Export Excel</el-button>
+        <el-button :disabled="!selectedRows.length" @click="showBatchStreamer = true">Batch Streamer</el-button>
         <el-button class="btn-dark" @click="$router.push('/Livestream_Management/orders/new')">+ New Order</el-button>
       </div>
     </div>
@@ -145,6 +146,18 @@
         </el-table>
       </template>
     </el-dialog>
+
+    <!-- Batch Streamer Dialog -->
+    <el-dialog v-model="showBatchStreamer" title="Batch Change Streamer" width="400px">
+      <p style="margin-bottom:12px;color:var(--fg-muted)">{{ selectedRows.length }} order(s) selected</p>
+      <el-select v-model="batchStreamerId" placeholder="Select streamer" style="width:100%">
+        <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
+      </el-select>
+      <template #footer>
+        <el-button @click="showBatchStreamer = false">Cancel</el-button>
+        <el-button type="primary" :disabled="!batchStreamerId" :loading="batchSaving" @click="doBatchStreamer">Apply</el-button>
+      </template>
+    </el-dialog>
   </div>
   </div>
 </template>
@@ -169,6 +182,9 @@ const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), st
 const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)
+const showBatchStreamer = ref(false)
+const batchStreamerId = ref(null)
+const batchSaving = ref(false)
 
 async function loadStreamers() { const { data } = await api.get('/config/streamers'); streamers.value = data }
 async function loadPayStatuses() { const { data } = await api.get('/config/payment_statuses'); payStatuses.value = data }
@@ -233,6 +249,15 @@ function exportCSV() {
 }
 
 async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
+
+async function doBatchStreamer() {
+  batchSaving.value = true
+  try {
+    await api.post('/orders/batch-streamer', { ids: selectedRows.value.map(r => r.id), streamer_id: batchStreamerId.value })
+    showBatchStreamer.value = false; batchStreamerId.value = null; loadOrders()
+  } catch {}
+  batchSaving.value = false
+}
 
 async function loadProducts() { const { data } = await api.get('/products', { params: { page_size: 1000 } }); products.value = data.list }
 

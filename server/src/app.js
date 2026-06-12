@@ -12,6 +12,7 @@ const statsRoutes = require('./routes/stats');
 const giglRoutes = require('./routes/gigl');
 const whatsappFlowRoutes = require('./routes/whatsapp-flow');
 const parseWhatsappRoutes = require('./routes/parse-whatsapp');
+const customerRoutes = require('./routes/customers');
 
 const app = express();
 app.use(cors());
@@ -32,6 +33,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/gigl', giglRoutes);
 app.use('/api/whatsapp-flow', whatsappFlowRoutes);
 app.use('/api/parse-whatsapp', parseWhatsappRoutes);
+app.use('/api/customers', customerRoutes);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Public tracking — no login required (WhatsApp Flow)
