@@ -46,6 +46,13 @@ router.get('/', async (req, res) => {
     }
     if (phone) { where += ' AND o.customer_phone LIKE ?'; params.push('%'+phone+'%'); }
     if (order_no) { where += ' AND o.order_no LIKE ?'; params.push('%'+order_no+'%'); }
+    if (req.query.shipping_status) {
+      const statuses = req.query.shipping_status.split(',').filter(Boolean);
+      if (statuses.length > 0) {
+        where += ' AND sr.status IN (' + statuses.map(() => '?').join(',') + ')';
+        statuses.forEach(s => params.push(s));
+      }
+    }
     const allowedSort = { order_no: 'o.order_no', created_at: 'o.created_at', total_amount: 'o.total_amount', customer_name: 'o.customer_name' };
     const sort_col = allowedSort[sort_by] || 'o.created_at';
     const sort_dir_name = sort_dir === 'asc' ? 'ASC' : 'DESC';

@@ -14,22 +14,33 @@
     <div class="page-card">
 
     <!-- Filters -->
-    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
-      <el-date-picker v-model="filters.date_from" type="date" placeholder="From" value-format="YYYY-MM-DD" size="small" style="width:135px" />
-      <span style="color:var(--fg-muted)">~</span>
-      <el-date-picker v-model="filters.date_to" type="date" placeholder="To" value-format="YYYY-MM-DD" size="small" style="width:135px" />
-      <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:240px">
-        <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
-      </el-select>
-      <el-select v-model="filters.streamer_id" placeholder="Streamer" clearable size="small" style="width:120px">
-        <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
-      </el-select>
-      <el-select v-model="filters.payment_status_id" placeholder="Payment" clearable size="small" style="width:120px">
-        <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
-      </el-select>
-      <el-input v-model="filters.order_no" placeholder="Order No." clearable size="small" style="width:140px" @keyup.enter="loadOrders" />
-      <el-input v-model="filters.phone" placeholder="Phone" clearable size="small" style="width:140px" @keyup.enter="loadOrders" />
-      <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <el-date-picker v-model="filters.date_from" type="date" placeholder="From" value-format="YYYY-MM-DD" size="small" style="width:140px" />
+        <span style="color:var(--fg-muted)">~</span>
+        <el-date-picker v-model="filters.date_to" type="date" placeholder="To" value-format="YYYY-MM-DD" size="small" style="width:140px" />
+        <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:250px">
+          <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
+        </el-select>
+        <el-select v-model="filters.streamer_id" placeholder="Streamer" clearable size="small" style="width:140px">
+          <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
+        </el-select>
+        <el-select v-model="filters.payment_status_id" placeholder="Payment" clearable size="small" style="width:140px">
+          <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
+        </el-select>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <el-input v-model="filters.order_no" placeholder="Order No." clearable size="small" style="width:160px" @keyup.enter="loadOrders" />
+        <el-input v-model="filters.phone" placeholder="Phone" clearable size="small" style="width:160px" @keyup.enter="loadOrders" />
+        <el-select v-model="filters.shipping_status" placeholder="Ship Status" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:240px">
+          <el-option label="Pending" value="pending" />
+          <el-option label="In Transit" value="in_transit" />
+          <el-option label="Delivered" value="delivered" />
+          <el-option label="Returned" value="returned" />
+          <el-option label="Voided" value="voided" />
+        </el-select>
+        <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
+      </div>
     </div>
 
     <!-- Table -->
@@ -144,7 +155,7 @@ const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
 import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
-const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [], order_no: '', phone: '' })
+const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [], order_no: '', phone: '', shipping_status: [] })
 const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)
@@ -162,6 +173,7 @@ async function loadOrders() {
   if (filters.value.product_names && filters.value.product_names.length > 0) params.product_names = filters.value.product_names.join(',')
   if (filters.value.order_no) params.order_no = filters.value.order_no
   if (filters.value.phone) params.phone = filters.value.phone
+  if (filters.value.shipping_status && filters.value.shipping_status.length > 0) params.shipping_status = filters.value.shipping_status.join(',')
   const { data } = await api.get('/orders', { params })
   orders.value = data.list; total.value = data.total; loading.value = false
 }
