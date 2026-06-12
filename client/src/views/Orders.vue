@@ -39,6 +39,11 @@
           <el-option label="Returned" value="returned" />
           <el-option label="Voided" value="voided" />
         </el-select>
+        <el-select v-model="filters.logistics" placeholder="Logistics" clearable size="small" style="width:130px">
+          <el-option label="All" value="" />
+          <el-option label="Normal" value="normal" />
+          <el-option label="Abnormal" value="abnormal" />
+        </el-select>
         <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
       </div>
     </div>
@@ -78,6 +83,11 @@
             <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
           </template>
           <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="Duration" width="90">
+        <template #default="{row}">
+          <span :class="{ 'overdue-cell': row.is_overdue }">{{ fmtDur(row.duration_hours) }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="total_amount" label="Total" width="100">
@@ -155,7 +165,7 @@ const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
 import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
-const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [], order_no: '', phone: '', shipping_status: [] })
+const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [], order_no: '', phone: '', shipping_status: [], logistics: '' })
 const selectedRows = ref([])
 const showDetail = ref(false)
 const currentOrder = ref(null)
@@ -174,8 +184,12 @@ async function loadOrders() {
   if (filters.value.order_no) params.order_no = filters.value.order_no
   if (filters.value.phone) params.phone = filters.value.phone
   if (filters.value.shipping_status && filters.value.shipping_status.length > 0) params.shipping_status = filters.value.shipping_status.join(',')
-  const { data } = await api.get('/orders', { params })
-  orders.value = data.list; total.value = data.total; loading.value = false
+  if (filters.value.logistics) params.logistics = filters.value.logistics
+  try {
+    const { data } = await api.get('/orders', { params })
+    orders.value = data.list; total.value = data.total
+  } catch {}
+  loading.value = false
 }
 
 async function viewDetail(row) {
@@ -185,6 +199,7 @@ async function viewDetail(row) {
 function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-CA') }
 function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-CA') + ' ' + t.toTimeString().slice(0,8) }
+function fmtDur(h) { if (h == null || h <= 0) return '-'; if (h < 1) return '< 1h'; const d = Math.floor(h / 24); const r = h % 24; return d > 0 ? d + 'd ' + r + 'h' : r + 'h' }
 function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger' }[s] || 'info' }
 
 // Refresh with 60s throttle
@@ -226,4 +241,8 @@ const route = useRoute()
 watch(() => route.path, () => { if (route.name === 'Orders') loadOrders() })
 onMounted(() => { loadStreamers(); loadPayStatuses(); loadProducts(); loadOrders() })
 </script>
+
+<style scoped>
+.overdue-cell { background:#fef0f0; color:#f56c6c; padding:2px 6px; border-radius:3px; font-size:12px; font-weight:600; white-space:nowrap; }
+</style>
 

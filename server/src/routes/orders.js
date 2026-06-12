@@ -53,10 +53,28 @@ router.get('/', async (req, res) => {
         statuses.forEach(s => params.push(s));
       }
     }
+
+    // Alert thresholds + duration/overdue expressions
+    const [alertRows] = await pool.query('SELECT config_key, config_value FROM alert_config');
+    const alertCfg = {}; alertRows.forEach(r => { alertCfg[r.config_key] = parseInt(r.config_value) || 0; });
+    const pendingAlert = alertCfg.pending_alert_hours || 24;
+    const transitOwnAlert = alertCfg.in_transit_own_alert_hours || 48;
+    const transitGiglAlert = alertCfg.in_transit_gigl_alert_hours || 120;
+    const durationExpr = `CASE WHEN sr.status IN ('pending','in_transit') THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW()) ELSE 0 END`;
+    const overdueExpr = `CASE
+      WHEN sr.status='pending' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW()) >= ${pendingAlert} THEN 1
+      WHEN sr.status='in_transit' AND sr.delivery_method='own' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitOwnAlert} THEN 1
+      WHEN sr.status='in_transit' AND sr.delivery_method='gig' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitGiglAlert} THEN 1
+      ELSE 0 END`;
+
+    // Logistics filter: normal / abnormal
+    if (req.query.logistics === 'abnormal') { where += ` AND (${overdueExpr}) = 1`; }
+    else if (req.query.logistics === 'normal') { where += ` AND (${overdueExpr}) = 0`; }
+
     const allowedSort = { order_no: 'o.order_no', created_at: 'o.created_at', total_amount: 'o.total_amount', customer_name: 'o.customer_name' };
     const sort_col = allowedSort[sort_by] || 'o.created_at';
     const sort_dir_name = sort_dir === 'asc' ? 'ASC' : 'DESC';
-    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o WHERE o.is_deleted = 0 AND ${where}`, params);
+    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill WHERE o.is_deleted = 0 AND ${where}`, params);
     const [rows] = await pool.query(
       `SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_address,
         o.streamer_id, o.streamer_name, o.commission_rate, o.payment_status_id, o.payment_status_name,
@@ -69,7 +87,9 @@ router.get('/', async (req, res) => {
              WHEN gs.is_delivered = 1 THEN 0
              WHEN EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code = 'DFA') THEN 1
              ELSE 0 END AS gigl_failed,
-        (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
+        (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count,
+        ${durationExpr} AS duration_hours,
+        ${overdueExpr} AS is_overdue
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
        LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill
