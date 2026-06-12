@@ -7,7 +7,7 @@
       <el-row :gutter="16">
         <el-col :span="8"><el-form-item label="Customer Name" required><el-input v-model="form.customer_name" placeholder="Customer full name" /></el-form-item></el-col>
         <el-col :span="4"><el-form-item label="Gender" required><el-select v-model="form.customer_gender"><el-option label="Male" value="male" /><el-option label="Female" value="female" /></el-select></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" placeholder="Phone number" maxlength="11" @blur="checkReturning" /></el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" placeholder="Phone number" maxlength="11" /></el-form-item></el-col>
         <el-col :span="6"><el-form-item label="Streamer" required><el-select v-model="form.streamer_id" placeholder="Select"><el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item></el-col>
       </el-row>
       <el-row :gutter="16">
@@ -184,15 +184,14 @@ async function loadOrder() {
 // Auto-sync actual_amount with total for new orders
 watch(totalAmount, (v) => { if (!isEdit.value) form.value.actual_amount = v })
 
-// Check returning customer by phone — auto-select last streamer
-async function checkReturning() {
-  const phone = form.value.customer_phone
-  if (!phone || phone.length < 10 || isEdit.value) return
+// Check returning customer by phone — auto-select last streamer when 11 digits typed
+watch(() => form.value.customer_phone, async (v) => {
+  if (!v || v.length !== 11 || isEdit.value) return
   try {
-    const { data } = await api.get('/orders/last-streamer', { params: { phone } })
+    const { data } = await api.get('/orders/last-streamer', { params: { phone: v } })
     if (data.found && data.streamer_id) { form.value.streamer_id = data.streamer_id }
   } catch {}
-}
+})
 
 // Watch product_id & quantity changes — more reliable than @change event
 watch(

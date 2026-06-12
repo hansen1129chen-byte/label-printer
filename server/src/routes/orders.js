@@ -305,6 +305,23 @@ router.get('/export', async (req, res) => {
 });
 
 // GET /api/orders/:id
+// GET /api/orders/last-streamer?phone=xxx — get last streamer for returning customer (before /:id)
+router.get('/last-streamer', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) return res.json({ found: false });
+    const [rows] = await pool.query(
+      'SELECT streamer_id, streamer_name FROM orders WHERE customer_phone = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 1',
+      [phone]
+    );
+    if (rows.length > 0) {
+      res.json({ found: true, streamer_id: rows[0].streamer_id, streamer_name: rows[0].streamer_name });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -446,23 +463,6 @@ router.post('/batch-streamer', async (req, res) => {
       [streamer_id, sr[0].name, sr[0].commission_rate, ...ids]
     );
     res.json({ message: 'Updated', count: ids.length });
-  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
-});
-
-// GET /api/orders/last-streamer?phone=xxx — get last streamer for returning customer
-router.get('/last-streamer', async (req, res) => {
-  try {
-    const { phone } = req.query;
-    if (!phone) return res.json({ found: false });
-    const [rows] = await pool.query(
-      'SELECT streamer_id, streamer_name FROM orders WHERE customer_phone = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 1',
-      [phone]
-    );
-    if (rows.length > 0) {
-      res.json({ found: true, streamer_id: rows[0].streamer_id, streamer_name: rows[0].streamer_name });
-    } else {
-      res.json({ found: false });
-    }
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 

@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
       `SELECT COUNT(DISTINCT o.customer_phone) AS total FROM orders o ${where}`, params
     );
     const [rows] = await pool.query(
-      `SELECT o.customer_name, o.customer_phone,
+      `SELECT ANY_VALUE(o.customer_name) AS customer_name, o.customer_phone,
         (SELECT o2.streamer_name FROM orders o2 WHERE o2.customer_phone = o.customer_phone AND o2.is_deleted = 0 ORDER BY o2.created_at DESC LIMIT 1) AS streamer_name,
         MIN(COALESCE(o.order_time, o.created_at)) AS first_order_date,
         COUNT(*) AS order_count,
