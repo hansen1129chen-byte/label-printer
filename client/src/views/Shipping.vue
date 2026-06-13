@@ -194,6 +194,7 @@ const trackingEvents = ref([])
 const trackingLoading = ref(false)
 const deliveryStaff = ref([])
 const selectedRows = ref([])
+function onSelectionChange(val) { selectedRows.value = val }
 import { defaultDateFrom, defaultDateTo, timelineColor, fmtDateTime as fmtDT, fmtDate as fmtD } from '../utils/gigl'
 const searchOrderNo = ref('')
 const searchCustomer = ref('')
