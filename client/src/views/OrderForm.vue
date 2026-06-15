@@ -52,6 +52,7 @@
         <el-upload
           :action="uploadUrl"
           :headers="uploadHeaders"
+          name="image"
           :on-success="onUploadSuccess"
           :on-error="onUploadError"
           :before-upload="beforeUpload"
@@ -72,6 +73,7 @@
 
       <div style="margin-top:16px;display:flex;gap:10px">
         <el-button type="primary" :loading="saving" @click="handleSave">{{ isEdit ? 'Update' : 'Save Order' }}</el-button>
+        <el-button v-if="!isEdit" type="success" :loading="printing" @click="confirmAndPrint">SAVE&PRINT</el-button>
         <el-button @click="$router.back()">Cancel</el-button>
       </div>
     </el-form>
@@ -90,6 +92,7 @@ const route = useRoute()
 const router = useRouter()
 const isEdit = ref(!!route.params.id)
 const saving = ref(false)
+const printing = ref(false)
 const streamers = ref([])
 const payStatuses = ref([])
 const products = ref([])
@@ -146,6 +149,32 @@ function onProductChange(idx, val) {
 function calcTotal() { items.value.forEach((item, i) => onProductChange(i)) }
 function addItem() { items.value.push({ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }) }
 function removeItem(idx) { items.value.splice(idx, 1) }
+
+async function confirmAndPrint() {
+  const f = form.value
+  if (!f.customer_name || !f.customer_gender || !f.customer_phone || !f.customer_address || !f.streamer_id || !f.payment_status_id) {
+    ElMessage.warning('All fields are required'); return
+  }
+  if (!/^\d{11}$/.test(f.customer_phone)) { ElMessage.warning('Phone must be 11 digits'); return }
+  if (items.value.some(i => !i.product_id)) { ElMessage.warning('Select products'); return }
+  if (f.payment_status_id === 1 && !f.payment_image) { ElMessage.warning('PAID orders require payment proof'); return }
+  printing.value = true
+  const actual = f.actual_amount != null && f.actual_amount > 0 ? f.actual_amount : totalAmount.value
+  const payload = {
+    ...form.value, actual_amount: actual,
+    items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity }))
+  }
+  try {
+    const { data } = await api.post('/orders', payload)
+    ElMessage.success('Created — printing label')
+    // 打开打印页面
+    const token = getToken()
+    window.open('/api/orders/' + data.id + '/print?token=' + token, '_blank')
+    // 等打印页面加载后跳转
+    setTimeout(() => router.replace('/Livestream_Management/orders'), 500)
+  } catch (err) { ElMessage.error(err.response?.data?.message || 'Failed') }
+  finally { printing.value = false }
+}
 
 async function handleSave() {
   const f = form.value

@@ -103,10 +103,13 @@
       <el-table-column label="Created" width="110">
         <template #default="{row}">{{ row.created_at?.slice(0,10) }}</template>
       </el-table-column>
-      <el-table-column label="Actions" width="140" fixed="right">
+      <el-table-column label="Actions" width="200" fixed="right">
         <template #default="{row}">
           <el-button link type="primary" size="small" @click="$router.push(`/Livestream_Management/orders/${row.id}/edit`)">Edit</el-button>
           <el-button link type="primary" size="small" @click="viewDetail(row)">View</el-button>
+          <el-popconfirm title="Print label?" @confirm="printLabel(row.id)">
+            <template #reference><el-button link type="success" size="small">Label</el-button></template>
+          </el-popconfirm>
           <el-popconfirm v-if="isAdmin" title="Delete?" @confirm="handleDelete(row.id)">
             <template #reference><el-button link type="danger" size="small">Del</el-button></template>
           </el-popconfirm>
@@ -249,6 +252,7 @@ function exportCSV() {
 }
 
 async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
+function printLabel(id) { window.open('/api/orders/' + id + '/print?token=' + getToken(), '_blank') }
 
 async function doBatchStreamer() {
   batchSaving.value = true
