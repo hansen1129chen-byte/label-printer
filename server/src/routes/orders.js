@@ -255,20 +255,20 @@ router.get('/export', async (req, res) => {
       }
     }
     const [rows] = await pool.query(
-      "SELECT o.order_no,o.customer_name,o.customer_phone,o.customer_address,o.streamer_name,o.payment_status_name,o.total_amount,o.actual_amount,o.created_at,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE "+where+" ORDER BY o.created_at DESC,oi.id", params
+      "SELECT o.order_no,o.customer_name,o.customer_gender,o.customer_phone,o.customer_address,o.streamer_name,o.payment_status_name,o.total_amount,o.actual_amount,o.created_at,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE "+where+" ORDER BY o.created_at DESC,oi.id", params
     );
     if (rows.length === 0) return res.status(400).json({ message: 'No data' });
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Orders');
-    const headers = ['Order No.','Customer','Phone','Address','Streamer','Payment','Total','Actual','Date','Product Code','Product Name','Unit Price','Quantity','Subtotal'];
+    const headers = ['Order No.','Customer','Gender','Phone','Address','Streamer','Payment','Total','Actual','Date','Product Code','Product Name','Unit Price','Quantity','Subtotal'];
     const headerRow = ws.addRow(headers);
     headerRow.font = { bold: true };
     headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
     // Add data rows
     for (const r of rows) {
-      ws.addRow([r.order_no,r.customer_name,r.customer_phone,r.customer_address,r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,String(r.created_at||'').slice(0,10),r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal]);
+      ws.addRow([r.order_no,r.customer_name,r.customer_gender,r.customer_phone,r.customer_address,r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,String(r.created_at||'').slice(0,10),r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal]);
     }
 
     // Merge cells by order group
@@ -278,7 +278,7 @@ router.get('/export', async (req, res) => {
       let endRow = row;
       while (endRow < ws.rowCount && ws.getCell(endRow + 1, 1).value === currentOrder) endRow++;
       if (endRow > row) {
-        for (let col = 1; col <= 9; col++) {
+        for (let col = 1; col <= 10; col++) {
           ws.mergeCells(row, col, endRow, col);
         }
       }
@@ -288,13 +288,13 @@ router.get('/export', async (req, res) => {
     // Style: center align merged cells
     ws.eachRow((r, rn) => {
       if (rn > 1) r.eachCell((c, cn) => {
-        if (cn <= 9) c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        if (cn <= 10) c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       });
     });
 
     // Column widths
     ws.columns.forEach((c, i) => {
-      c.width = i < 9 ? 16 : (i < 11 ? 20 : 12);
+      c.width = i < 10 ? 16 : (i < 12 ? 20 : 12);
     });
 
     const buf = await wb.xlsx.writeBuffer();
