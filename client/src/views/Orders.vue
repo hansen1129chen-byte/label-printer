@@ -147,7 +147,18 @@
           <el-table-column prop="quantity" label="Qty" width="60" />
           <el-table-column prop="subtotal" label="Subtotal" width="110"><template #default="{row}">₦{{ Number(row.subtotal).toLocaleString() }}</template></el-table-column>
         </el-table>
+        <div v-if="orderImages.length" style="margin-top:12px">
+          <h4 style="margin-bottom:8px">Images ({{orderImages.length}})</h4>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <img v-for="img in orderImages" :key="img.id" :src="img.url"
+                 @click="previewImg = img.url; showImgPreview = true"
+                 style="width:100px;height:100px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #e0e0e0" />
+          </div>
+        </div>
       </template>
+    </el-dialog>
+    <el-dialog v-model="showImgPreview" :show-close="true" width="80vw">
+      <img :src="previewImg" style="width:100%;max-height:80vh;object-fit:contain" />
     </el-dialog>
 
     <!-- Batch Streamer Dialog -->
@@ -211,8 +222,12 @@ async function loadOrders() {
   loading.value = false
 }
 
+const orderImages = ref([])
+const previewImg = ref('')
+const showImgPreview = ref(false)
 async function viewDetail(row) {
   const { data } = await api.get(`/orders/${row.id}`); currentOrder.value = data; showDetail.value = true
+  try { const r = await api.get(`/orders/${row.id}/images`); orderImages.value = r.data || [] } catch { orderImages.value = [] }
 }
 
 function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }

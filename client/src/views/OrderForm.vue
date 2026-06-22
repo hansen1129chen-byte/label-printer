@@ -47,29 +47,26 @@
         <el-col :span="8"><el-form-item label="Actual Amount"><el-input-number v-model="form.actual_amount" :min="0" :step="100" style="width:100%" /></el-form-item></el-col>
       </el-row>
 
-      <!-- Payment Proof Upload -->
-      <el-form-item label="Payment Proof" style="margin-top:16px">
-        <el-upload
-          :action="uploadUrl"
-          :headers="uploadHeaders"
-          name="image"
-          :on-success="onUploadSuccess"
-          :on-error="onUploadError"
-          :before-upload="beforeUpload"
-          :show-file-list="false"
-          accept="image/*"
-          drag
-        >
-          <template v-if="form.payment_image">
-            <img :src="form.payment_image" style="max-width:200px;max-height:150px;border-radius:6px" />
-            <p style="margin-top:8px;font-size:12px;color:#909399">Click to change</p>
-          </template>
-          <template v-else>
-            <el-icon :size="32" color="#909399"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></el-icon>
-            <p style="font-size:13px;color:#909399;margin-top:8px">Drop payment screenshot or click to upload</p>
-          </template>
-        </el-upload>
+      <!-- Images Upload (max 5) -->
+      <el-form-item label="Images (max 5)" style="margin-top:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div v-for="(img, idx) in images" :key="idx" style="position:relative;width:80px;height:80px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;cursor:pointer">
+            <img :src="img.url" style="width:100%;height:100%;object-fit:cover" @click="previewImage = img.url" />
+            <span v-if="user?.role === 'admin' || !img.id"
+                  @click.stop="removeImage(idx)"
+                  style="position:absolute;top:2px;right:2px;width:18px;height:18px;background:rgba(0,0,0,0.6);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;cursor:pointer">×</span>
+          </div>
+          <div v-if="images.length < 5" style="width:80px;height:80px;border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#aaa">
+            <el-upload :action="uploadUrl" :headers="uploadHeaders" name="images" :on-success="onUploadSuccess" :on-error="onUploadError" :before-upload="beforeUpload" :show-file-list="false" accept="image/*" multiple style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">
+              <span style="font-size:24px">+</span>
+            </el-upload>
+          </div>
+        </div>
       </el-form-item>
+      <!-- Image preview -->
+      <el-dialog v-model="showPreview" :show-close="true" width="80vw">
+        <img :src="previewImage" style="width:100%;max-height:80vh;object-fit:contain" />
+      </el-dialog>
 
       <div style="margin-top:16px;display:flex;gap:10px">
         <el-button type="primary" :loading="saving" @click="handleSave">{{ isEdit ? 'Update' : 'Save Order' }}</el-button>
@@ -86,7 +83,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
-import { getToken } from '../utils/auth'
+import { getToken, getUser } from '../utils/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -108,27 +105,46 @@ const form = ref({
 const totalAmount = computed(() => items.value.reduce((s, i) => s + (i.subtotal || 0), 0))
 function fmtNaira(v) { const n = Number(v); return isNaN(n) ? '0' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
-// Payment image upload
-const uploadUrl = '/api/orders/upload-payment'
+// Multi-image upload
+const images = ref([])
+const showPreview = ref(false)
+const previewImage = ref('')
+const user = ref(getUser())
+const uploadUrl = '/api/orders/upload-images'
 const uploadHeaders = computed(() => ({ Authorization: `Bearer ${getToken()}` }))
 function beforeUpload(file) {
   if (!file.type.startsWith('image/')) { ElMessage.error('Only images allowed'); return false }
   if (file.size / 1024 / 1024 > 5) { ElMessage.error('Max 5MB'); return false }
+  if (images.value.length >= 5) { ElMessage.warning('Max 5 images'); return false }
   return true
 }
-function onUploadSuccess(res) { form.value.payment_image = res.url; ElMessage.success('Uploaded') }
+function onUploadSuccess(res) {
+  const added = Array.isArray(res) ? res : [res]
+  for (const r of added) { if (images.value.length < 5) images.value.push({ url: r.url, filename: r.filename, id: null }) }
+}
 function onUploadError() { ElMessage.error('Upload failed') }
+function removeImage(idx) {
+  const img = images.value[idx]
+  if (!img) return
+  if (img.id) {
+    if (user.value?.role !== 'admin') { ElMessage.warning('Only admin can delete saved images'); return }
+    api.delete('/orders/images/' + img.id).then(() => { images.value.splice(idx, 1) }).catch(() => ElMessage.error('Delete failed'))
+  } else {
+    images.value.splice(idx, 1)
+  }
+}
 
-// Ctrl+V paste image as payment proof
+// Ctrl+V paste image
 async function onPaste(e) {
   const file = e.clipboardData?.files?.[0]
   if (!file || !file.type.startsWith('image/')) return
+  if (images.value.length >= 5) { ElMessage.warning('Max 5 images'); return }
   e.preventDefault()
-  const fd = new FormData(); fd.append('image', file)
+  const fd = new FormData(); fd.append('images', file)
   try {
     const res = await fetch(uploadUrl, { method: 'POST', headers: { Authorization: 'Bearer ' + getToken() }, body: fd })
     const data = await res.json()
-    if (data.url) { form.value.payment_image = data.url; ElMessage.success('Pasted!') }
+    if (Array.isArray(data) && data.length) { images.value.push({ url: data[0].url, filename: data[0].filename, id: null }) }
   } catch { ElMessage.error('Paste failed') }
 }
 
@@ -157,12 +173,13 @@ async function confirmAndPrint() {
   }
   if (!/^\d{11}$/.test(f.customer_phone)) { ElMessage.warning('Phone must be 11 digits'); return }
   if (items.value.some(i => !i.product_id)) { ElMessage.warning('Select products'); return }
-  if (f.payment_status_id === 1 && !f.payment_image) { ElMessage.warning('PAID orders require payment proof'); return }
+  if (images.value.length === 0) { ElMessage.warning('Upload at least one image'); return }
   printing.value = true
   const actual = f.actual_amount != null && f.actual_amount > 0 ? f.actual_amount : totalAmount.value
   const payload = {
     ...form.value, actual_amount: actual,
-    items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity }))
+    items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+    images: images.value.map(i => ({ url: i.url, filename: i.filename }))
   }
   try {
     const { data } = await api.post('/orders', payload)
@@ -183,12 +200,13 @@ async function handleSave() {
   }
   if (!/^\d{11}$/.test(f.customer_phone)) { ElMessage.warning('Phone must be 11 digits'); return }
   if (items.value.some(i => !i.product_id)) { ElMessage.warning('Select products'); return }
-  if (f.payment_status_id === 1 && !f.payment_image) { ElMessage.warning('PAID orders require payment proof'); return }
+  if (images.value.length === 0) { ElMessage.warning('Upload at least one image'); return }
   saving.value = true
   const actual = f.actual_amount != null && f.actual_amount > 0 ? f.actual_amount : totalAmount.value
   const payload = {
     ...form.value, actual_amount: actual,
-    items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity }))
+    items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+    images: images.value.map(i => ({ url: i.url, filename: i.filename }))
   }
   try {
     if (isEdit.value) { await api.put(`/orders/${route.params.id}`, payload) }
@@ -201,6 +219,11 @@ async function handleSave() {
 
 async function loadOrder() {
   const { data } = await api.get(`/orders/${route.params.id}`)
+  // Load images
+  try {
+    const imgRes = await api.get(`/orders/${route.params.id}/images`)
+    images.value = (imgRes.data || []).map(i => ({ url: i.url, filename: i.filename, id: i.id }))
+  } catch {}
   Object.assign(form.value, {
     customer_name: data.customer_name, customer_gender: data.customer_gender,
     customer_phone: data.customer_phone, customer_address: data.customer_address,

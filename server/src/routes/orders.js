@@ -322,6 +322,48 @@ router.get('/last-streamer', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
+
+// Multi-image upload setup
+const imagesDir = path.join(__dirname, '..', '..', 'uploads', 'orders');
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+const uploadImages = multer({
+  storage: multer.diskStorage({
+    destination: imagesDir,
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random()*1E9) + path.extname(file.originalname)),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(['.jpg','.jpeg','.png','.gif','.webp'].includes(ext) ? null : new Error('Only image files'), true);
+  },
+});
+
+// POST /api/orders/upload-images — multiple images
+router.post('/upload-images', uploadImages.array('images', 5), (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'No files' });
+  const results = req.files.map(f => ({ url: '/uploads/orders/' + f.filename, filename: f.filename }));
+  res.json(results);
+});
+
+// GET /api/orders/:id/images — get order images
+router.get('/:id/images', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, order_id, url, filename FROM order_images WHERE order_id=? ORDER BY id', [req.params.id]);
+    res.json(rows);
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
+
+// DELETE /api/orders/images/:id — delete an image (admin only)
+router.delete('/images/:id', async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Permission denied' });
+    const [ir] = await pool.query('SELECT url FROM order_images WHERE id=?', [req.params.id]);
+    if (ir.length === 0) return res.status(404).json({ message: 'Not found' });
+    try { fs.unlinkSync(path.join(__dirname, '..', '..', ir[0].url)); } catch {}
+    await pool.query('DELETE FROM order_images WHERE id=?', [req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
+});
 // GET /api/orders/:id/print — 100x100mm label, JS scale to fit
 router.get('/:id/print', async (req, res) => {
   try {
@@ -401,6 +443,14 @@ router.post('/', async (req, res) => {
     }
     const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
     await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status) VALUES (?,?,'pending')",[orderResult.insertId,shipCode]);
+    // Save uploaded images
+    if (req.body.images && Array.isArray(req.body.images)) {
+      for (const img of req.body.images) {
+        if (img && img.url) {
+          await conn.query('INSERT INTO order_images (order_id, url, filename) VALUES (?,?,?)', [orderResult.insertId, img.url, img.filename || '']);
+        }
+      }
+    }
     conn.release();
     res.status(201).json({ id:orderResult.insertId, order_no:orderNo, total_amount:totalAmount });
   } catch (err) { conn.release(); console.error(err); res.status(500).json({ message: 'Server error' }); }
