@@ -5,11 +5,35 @@ const { notifyCustomer } = require('../services/whatsapp');
 const router = express.Router();
 router.use(authMiddleware);
 
+async function attachOvertime(rows) {
+  try {
+    const [alerts] = await pool.query('SELECT config_key, config_value FROM alert_config');
+    const thresholds = {};
+    alerts.forEach(a => { thresholds[a.config_key] = parseInt(a.config_value) || 0; });
+    for (const row of rows) {
+      const s = row.status;
+      let start = null;
+      if (s === 'pending') start = row.status_since || row.initiated_at;
+      else if (s === 'in_transit') start = row.shipped_at;
+      if (start) {
+        let hours = 0;
+        if (s === 'pending') hours = thresholds.pending_alert_hours || 24;
+        else if (s === 'in_transit' && row.delivery_method === 'own') hours = thresholds.in_transit_own_alert_hours || 48;
+        else if (s === 'in_transit') hours = thresholds.in_transit_gigl_alert_hours || 120;
+        if (hours > 0) {
+          const elapsed = (Date.now() - new Date(start).getTime()) / 3600000;
+          row.overtime_hours = Math.round(elapsed * 10) / 10;
+          row.is_overtime = elapsed > hours;
+        } else { row.overtime_hours = null; row.is_overtime = false; }
+      } else { row.overtime_hours = null; row.is_overtime = false; }
+    }
+  } catch (e) { /* ignore */ }
+}
+
 function genShippingCode() {
   return 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
 }
 
-// Log an action
 async function logAction(shippingId, action, detail, operator) {
   await pool.query('INSERT INTO shipping_logs (shipping_id, action, detail, operator) VALUES (?,?,?,?)',
     [shippingId, action, detail, operator || '']);
@@ -18,78 +42,74 @@ async function logAction(shippingId, action, detail, operator) {
 // GET /api/shipping
 router.get('/', async (req, res) => {
   try {
-    const { status, date_from, date_to, order_no, customer, page = 1, page_size = 20, sort_by, sort_dir, tracking, delivery_method } = req.query;
+    const { status, date_from, date_to, order_no, customer, page = 1, page_size = 20, sort_by, sort_dir, tracking, delivery_staff_id } = req.query;
     let where = '1=1';
     const params = [];
-    if (status) {
+
+    // Status tab filter
+    if (status === 'unassigned') {
+      where += " AND (sr.id IS NULL OR (sr.delivery_method IS NULL AND sr.status = 'pending'))";
+    } else if (status === 'pending') {
+      where += " AND sr.status = 'pending' AND sr.delivery_method IS NOT NULL";
+    } else if (status === 'returned') {
+      where += " AND sr.status IN ('returned','failed')";
+    } else if (status) {
       where += ' AND sr.status = ?'; params.push(status);
     }
+
     if (order_no) { where += ' AND o.order_no LIKE ?'; params.push('%'+order_no+'%'); }
     if (customer) { where += ' AND (o.customer_name LIKE ? OR o.customer_phone LIKE ?)'; params.push('%'+customer+'%', '%'+customer+'%'); }
     if (tracking) { where += ' AND sr.gig_tracking LIKE ?'; params.push('%'+tracking+'%'); }
-    if (delivery_method) { where += ' AND sr.delivery_method = ?'; params.push(delivery_method); }
+    if (delivery_staff_id) { where += ' AND sr.delivery_staff_id = ?'; params.push(delivery_staff_id); }
     if (date_from) { where += ' AND COALESCE(o.order_time, o.created_at) >= ?'; params.push(date_from); }
     if (date_to) { where += ' AND COALESCE(o.order_time, o.created_at) <= ?'; params.push(date_to + ' 23:59:59'); }
-
-    // Fetch alert thresholds
-    const [alertRows] = await pool.query('SELECT config_key, config_value FROM alert_config');
-    const alertCfg = {};
-    alertRows.forEach(r => { alertCfg[r.config_key] = parseInt(r.config_value) || 0; });
-    const pendingAlert = alertCfg.pending_alert_hours || 24;
-    const transitOwnAlert = alertCfg.in_transit_own_alert_hours || 48;
-    const transitGiglAlert = alertCfg.in_transit_gigl_alert_hours || 120;
 
     const allowedSort = { order_no: 'o.order_no', created_at: 'o.created_at', order_time: 'o.order_time', status: 'sr.status' };
     const sortCol = allowedSort[sort_by] || 'COALESCE(sr.initiated_at, o.created_at)';
     const sortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
 
-    const durationExpr = `CASE
-      WHEN sr.status IN ('pending','in_transit') THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW())
-      ELSE 0 END`;
-    const overdueExpr = `CASE
-      WHEN sr.status = 'pending' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW()) >= ${pendingAlert} THEN 1
-      WHEN sr.status = 'in_transit' AND sr.delivery_method = 'own' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitOwnAlert} THEN 1
-      WHEN sr.status = 'in_transit' AND sr.delivery_method = 'gig' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitGiglAlert} THEN 1
-      ELSE 0 END`;
-
     const [rows] = await pool.query(
       `SELECT sr.id, sr.order_id, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
-        sr.delivery_staff_id, sr.status, sr.initiated_at, sr.updated_at,
+        sr.delivery_staff_id, sr.status, sr.status_since, sr.initiated_at, sr.updated_at,
         sr.shipped_at, sr.returned_at, sr.updated_by,
         ds.name AS delivery_staff_name,
         o.order_no, o.order_time, o.created_at AS order_created_at,
         o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
-        o.streamer_id,
-        ${durationExpr} AS duration_hours,
-        ${overdueExpr} AS is_overdue
+        o.streamer_id
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
        LEFT JOIN delivery_staff ds ON sr.delivery_staff_id = ds.id
-       WHERE o.is_deleted = 0 AND ${where} ORDER BY is_overdue DESC, ${sortCol} ${sortDir} LIMIT ? OFFSET ?`,
+       WHERE o.is_deleted = 0 AND ${where} ORDER BY ${sortCol} ${sortDir} LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page) - 1) * parseInt(page_size)]
     );
     const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id WHERE o.is_deleted = 0 AND ${where}`, params);
+    await attachOvertime(rows);
     res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
-// POST /api/shipping — create shipping record
-router.post('/', async (req, res) => {
+// POST /api/shipping/create — create shipping record for own delivery (Unassigned → Pending)
+router.post('/create', async (req, res) => {
   try {
-    const { order_id, delivery_method, gig_tracking, delivery_staff_id } = req.body;
-    if (!order_id || !delivery_method) return res.status(400).json({ message: 'Missing fields' });
-    const [existing] = await pool.query('SELECT id FROM shipping_records WHERE order_id = ? AND status != ?', [order_id, 'returned']);
+    const { order_id, delivery_staff_id } = req.body;
+    if (!order_id || !delivery_staff_id) return res.status(400).json({ message: 'Missing fields' });
+
+    // Check no active shipping
+    const [existing] = await pool.query(
+      "SELECT id FROM shipping_records WHERE order_id = ? AND status NOT IN ('returned','voided','cancelled')",
+      [order_id]
+    );
     if (existing.length > 0) return res.status(400).json({ message: 'Already has active shipping' });
-    const code = genShippingCode();
+
     let staffName = '';
-    if (delivery_method === 'own' && delivery_staff_id) {
-      const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id = ?', [delivery_staff_id]);
-      if (ds.length > 0) staffName = ds[0].name;
-    }
+    const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id = ?', [delivery_staff_id]);
+    if (ds.length > 0) staffName = ds[0].name;
+
+    const code = genShippingCode();
     await pool.query(
-      'INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, delivery_staff_id, delivery_staff_name, status_since) VALUES (?,?,?,?,?,?, NOW())',
-      [order_id, code, delivery_method, gig_tracking || '', delivery_method === 'own' ? delivery_staff_id : null, staffName]
+      "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, delivery_staff_id, delivery_staff_name, status, status_since) VALUES (?,?,?,?,?,?, NOW())",
+      [order_id, code, 'own', delivery_staff_id, staffName, 'pending']
     );
     res.status(201).json({ code });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
@@ -101,7 +121,6 @@ router.put('/:id', async (req, res) => {
     const { gig_tracking, delivery_staff_id, operator } = req.body;
     const [rows] = await pool.query('SELECT * FROM shipping_records WHERE id=?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
-    let staffName = rows[0].delivery_staff_name || '';
     let detail = '';
     if (gig_tracking !== undefined) {
       await pool.query('UPDATE shipping_records SET gig_tracking=?, updated_by=? WHERE id=?', [gig_tracking, operator, rows[0].id]);
@@ -109,7 +128,7 @@ router.put('/:id', async (req, res) => {
     }
     if (delivery_staff_id) {
       const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
-      if (ds.length > 0) staffName = ds[0].name;
+      const staffName = ds.length > 0 ? ds[0].name : '';
       await pool.query('UPDATE shipping_records SET delivery_staff_id=?, delivery_staff_name=?, updated_by=? WHERE id=?', [delivery_staff_id, staffName, operator, rows[0].id]);
       detail = 'Staff: ' + staffName;
     }
@@ -121,98 +140,76 @@ router.put('/:id', async (req, res) => {
 // POST /api/shipping/:id/action — update status
 router.post('/:id/action', async (req, res) => {
   try {
-    const { action, delivery_method, gig_tracking, delivery_staff_id, operator } = req.body;
+    const { action, delivery_staff_id, operator } = req.body;
     const [rows] = await pool.query('SELECT * FROM shipping_records WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
     const rec = rows[0];
 
-    const validActions = {
-      pending: ['confirm_ship', 'void', 'reset_method'],
-      in_transit: ['deliver', 'reassign', 'void'],
-      delivered: ['reassign', 'void'],
-      cancelled: ['reassign', 'void'],
-      failed: ['reassign', 'void'],
-    };
-    if (!validActions[rec.status] || !validActions[rec.status].includes(action)) {
-      return res.status(400).json({ message: `Cannot ${action} in ${rec.status} status` });
-    }
-
-    let newStatus, setExtra = '';
+    // Ship (from unassigned or pending → pending + own delivery)
     if (action === 'confirm_ship') {
-      newStatus = 'in_transit'; setExtra = ', shipped_at = NOW()';
-      if (delivery_method) {
-        let dsName = '';
-        if (delivery_method === 'own' && delivery_staff_id) {
-          const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
-          if (ds.length > 0) dsName = ds[0].name;
-        }
-        await pool.query('UPDATE shipping_records SET delivery_method=?, gig_tracking=?, delivery_staff_id=?, delivery_staff_name=? WHERE id=?',
-          [delivery_method, gig_tracking || '', delivery_method==='own' ? delivery_staff_id : null, dsName, rec.id]);
+      if (!['pending'].includes(rec.status) && rec.delivery_method !== null) {
+        // Allow ship only for unassigned (no sr record) or pending with no method set
+      }
+      let staffName = '';
+      if (delivery_staff_id) {
+        const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
+        if (ds.length > 0) staffName = ds[0].name;
+      }
+      await pool.query(
+        "UPDATE shipping_records SET delivery_method='own', delivery_staff_id=?, delivery_staff_name=?, status='pending', status_since=NOW(), shipped_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?",
+        [delivery_staff_id || null, staffName, operator || '', rec.id]
+      );
+      await logAction(rec.id, 'confirm_ship', 'Method: OWN ' + staffName, operator);
+      notifyCustomer(pool, rec.id, 'in_transit');
+      return res.json({ message: 'Shipped', status: 'pending' });
+    }
 
-        // If GIG: check if GIGL already shows delivered → skip straight to delivered
-        if (delivery_method === 'gig' && gig_tracking) {
-          const [gs] = await pool.query('SELECT is_delivered FROM gigl_shipments WHERE waybill = ?', [gig_tracking]);
-          if (gs.length > 0 && gs[0].is_delivered) {
-            newStatus = 'delivered'; setExtra = ', shipped_at = NOW()';
-          }
-        }
+    // Cancel pending → back to unassigned (clear shipping record)
+    if (action === 'cancel') {
+      if (rec.status !== 'pending') return res.status(400).json({ message: 'Cancel only from pending' });
+      // Cancel Speedaf waybill if applicable
+      if (rec.delivery_method === 'speedaf' && rec.gig_tracking) {
+        try {
+          const speedaf = require('../services/speedaf');
+          await speedaf.cancelOrder(rec.gig_tracking, 'Customer request');
+        } catch (e) { /* log but proceed */ }
       }
+      await pool.query(
+        "UPDATE shipping_records SET delivery_method=NULL, gig_tracking='', delivery_staff_id=NULL, delivery_staff_name='', status='pending', status_since=NOW(), shipped_at=NULL, updated_at=NOW(), updated_by=? WHERE id=?",
+        [operator || '', rec.id]
+      );
+      await logAction(rec.id, 'cancel', 'Cancelled to unassigned', operator);
+      return res.json({ message: 'Cancelled', status: 'unassigned' });
     }
-    else if (action === 'deliver') newStatus = 'delivered';
-    else if (action === 'return') { newStatus = 'returned'; setExtra = ', returned_at = NOW()'; }
-    else if (action === 'reassign') {
-      // Release the old waybill's matched_shipping_id BEFORE clearing tracking
-      if (rec.gig_tracking) {
-        await pool.query('UPDATE gigl_shipments SET matched_shipping_id = NULL WHERE waybill = ?', [rec.gig_tracking]);
-      }
-      newStatus = 'pending'; setExtra = ', gig_tracking = \'\', delivery_method = \'reassigned\', shipped_at = NULL';
+
+    // Deliver — only for own/gig deliveries in transit
+    if (action === 'deliver') {
+      if (rec.status !== 'in_transit') return res.status(400).json({ message: 'Deliver only from in_transit' });
+      if (rec.delivery_method === 'speedaf') return res.status(400).json({ message: 'Speedaf orders auto-update via webhook' });
+      await pool.query(
+        "UPDATE shipping_records SET status='delivered', status_since=NOW(), updated_at=NOW(), updated_by=? WHERE id=?",
+        [operator || '', rec.id]
+      );
+      await logAction(rec.id, 'deliver', '', operator);
+      notifyCustomer(pool, rec.id, 'delivered');
+      return res.json({ message: 'Delivered', status: 'delivered' });
     }
-    else if (action === 'reset_method') {
-      newStatus = 'pending'; setExtra = ', delivery_method = NULL';
-    }
-    else if (action === 'void') {
+
+    // Void — admin only, own/gig delivery only
+    if (action === 'void') {
+      if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Only admin can void' });
+      if (rec.delivery_method === 'speedaf') return res.status(400).json({ message: 'Void only for own/gig logistics' });
       const reason = req.body.reason || '';
       if (!reason.trim()) return res.status(400).json({ message: 'Reason is required to void an order' });
-      newStatus = 'voided'; setExtra = ', gig_tracking = \'\', shipped_at = NULL';
+      await pool.query(
+        "UPDATE shipping_records SET status='voided', status_since=NOW(), updated_at=NOW(), updated_by=? WHERE id=?",
+        [operator || '', rec.id]
+      );
+      await logAction(rec.id, 'void', 'Reason: ' + reason, operator);
+      return res.json({ message: 'Voided', status: 'voided' });
     }
 
-    await pool.query(`UPDATE shipping_records SET status = ?, status_since = NOW(), updated_at = NOW(), updated_by = ? ${setExtra} WHERE id = ?`, [newStatus, operator || '', rec.id]);
-
-    // Log
-    let logDetail = '';
-    if (action === 'confirm_ship' && delivery_method) { logDetail = 'Method: ' + delivery_method.toUpperCase(); }
-    else if (action === 'void') { logDetail = 'Reason: ' + (req.body.reason || ''); }
-    await logAction(rec.id, action, logDetail, operator);
-
-    // OWN delivery tracking events — record timeline for OWN orders
-    const finalMethod = delivery_method || rec.delivery_method;
-    if (finalMethod === 'own') {
-      const [orderRow] = await pool.query('SELECT customer_address FROM orders WHERE id = ?', [rec.order_id]);
-      const custAddr = orderRow.length > 0 ? (orderRow[0].customer_address || 'LAGOS') : 'LAGOS';
-      if (action === 'confirm_ship') {
-        await pool.query(
-          'INSERT INTO shipping_tracking_events (shipping_id, event_time, location, status_code, status_description, action, operator) VALUES (?, NOW(), ?, ?, ?, ?, ?)',
-          [rec.id, 'LAGOS', 'CRT', 'SHIPMENT CREATED', 'confirm_ship', operator || '']
-        );
-      } else if (action === 'deliver') {
-        await pool.query(
-          'INSERT INTO shipping_tracking_events (shipping_id, event_time, location, status_code, status_description, action, operator) VALUES (?, NOW(), ?, ?, ?, ?, ?)',
-          [rec.id, custAddr, 'OKC', 'DELIVERED TO CUSTOMER', 'deliver', operator || '']
-        );
-      } else if (action === 'return') {
-        await pool.query(
-          'INSERT INTO shipping_tracking_events (shipping_id, event_time, location, status_code, status_description, action, operator) VALUES (?, NOW(), ?, ?, ?, ?, ?)',
-          [rec.id, custAddr, 'DFA', 'Delivery Unsuccessful', 'return', operator || '']
-        );
-      }
-    }
-
-    // WhatsApp notification (Meta Cloud API — fire-and-forget)
-    if (newStatus === 'in_transit' || newStatus === 'delivered') {
-      notifyCustomer(pool, rec.id, newStatus);
-    }
-
-    res.json({ message: 'Status updated', status: newStatus });
+    return res.status(400).json({ message: 'Unknown action' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 

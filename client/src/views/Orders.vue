@@ -34,11 +34,15 @@
         <el-input v-model="filters.order_no" placeholder="Order No." clearable size="small" style="width:160px" @keyup.enter="loadOrders" />
         <el-input v-model="filters.phone" placeholder="Phone" clearable size="small" style="width:160px" @keyup.enter="loadOrders" />
         <el-select v-model="filters.shipping_status" placeholder="Ship Status" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:240px">
+          <el-option label="Unassigned" value="unassigned" />
           <el-option label="Pending" value="pending" />
           <el-option label="In Transit" value="in_transit" />
           <el-option label="Delivered" value="delivered" />
+          <el-option label="Returning" value="returning" />
           <el-option label="Returned" value="returned" />
+          <el-option label="Cancelled" value="cancelled" />
           <el-option label="Voided" value="voided" />
+          <el-option label="Failed" value="failed" />
         </el-select>
         <el-select v-model="filters.logistics" placeholder="Logistics" clearable size="small" style="width:130px">
           <el-option label="All" value="" />
@@ -69,21 +73,13 @@
         <template #default="{row}">
           <el-tag v-if="row.delivery_method === 'gig'" type="" size="small">GIG</el-tag>
           <el-tag v-else-if="row.delivery_method === 'own'" type="info" size="small">OWN</el-tag>
+          <el-tag v-else-if="row.delivery_method === 'speedaf'" type="warning" size="small">Speedaf</el-tag>
           <span v-else style="color:var(--fg-muted)">—</span>
         </template>
       </el-table-column>
       <el-table-column label="Ship Status" width="120">
         <template #default="{row}">
-          <template v-if="row.delivery_method === 'gig'">
-            <el-tag v-if="row.gigl_cancelled" type="danger" size="small">Cancelled</el-tag>
-            <el-tag v-else-if="row.gigl_delivered" type="success" size="small">Delivered</el-tag>
-            <el-tag v-else-if="row.gigl_failed" type="warning" size="small">Failed</el-tag>
-            <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
-          </template>
-          <template v-else-if="row.delivery_method === 'own'">
-            <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
-          </template>
-          <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+          <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="Duration" width="90">
@@ -128,8 +124,12 @@
           <el-descriptions-item label="Order No.">{{ currentOrder.order_no }}</el-descriptions-item>
           <el-descriptions-item label="Customer">{{ currentOrder.customer_name }}</el-descriptions-item>
           <el-descriptions-item label="Phone">{{ currentOrder.customer_phone }}</el-descriptions-item>
+          <el-descriptions-item label="Phone 2">{{ currentOrder.customer_phone2 || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Gender">{{ currentOrder.customer_gender }}</el-descriptions-item>
           <el-descriptions-item label="Address" :span="2">{{ currentOrder.customer_address }}</el-descriptions-item>
+          <el-descriptions-item label="Province">{{ currentOrder.accept_province || 'LAGOS' }}</el-descriptions-item>
+          <el-descriptions-item label="City">{{ currentOrder.accept_city || 'LAGOS' }}</el-descriptions-item>
+          <el-descriptions-item label="District">{{ currentOrder.accept_district || 'LAGOS' }}</el-descriptions-item>
           <el-descriptions-item label="Streamer">{{ currentOrder.streamer_name }}</el-descriptions-item>
           <el-descriptions-item label="Payment">{{ currentOrder.payment_status_name }}</el-descriptions-item>
           <el-descriptions-item label="Total">₦{{ Number(currentOrder.total_amount).toLocaleString() }}</el-descriptions-item>
@@ -191,7 +191,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
-import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
+function defaultDateFrom() { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0,10) }
+function defaultDateTo() { return new Date().toISOString().slice(0,10) }
 const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [], order_no: '', phone: '', shipping_status: [], logistics: '' })
 const selectedRows = ref([])
 const showDetail = ref(false)
@@ -230,11 +231,11 @@ async function viewDetail(row) {
   try { const r = await api.get(`/orders/${row.id}/images`); orderImages.value = r.data || [] } catch { orderImages.value = [] }
 }
 
-function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }
+function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned', returning:'Returning', cancelled:'Cancelled', voided:'Voided', failed:'Failed' }[s] || s || '-' }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-CA') }
 function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-CA') + ' ' + t.toTimeString().slice(0,8) }
 function fmtDur(h) { if (h == null || h <= 0) return '-'; if (h < 1) return '< 1h'; const d = Math.floor(h / 24); const r = h % 24; return d > 0 ? d + 'd ' + r + 'h' : r + 'h' }
-function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger' }[s] || 'info' }
+function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger', returning:'warning', cancelled:'info', voided:'info', failed:'danger' }[s] || 'info' }
 
 // Refresh with 60s throttle
 const refreshing = ref(false)

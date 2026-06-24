@@ -49,7 +49,7 @@
           <el-form-item label="In Transit Alert — OWN (hours)">
             <el-input-number v-model="alertCfg.in_transit_own_alert_hours" :min="1" :max="999" :step="1" style="width:100%" />
           </el-form-item>
-          <el-form-item label="In Transit Alert — GIGL (hours)">
+          <el-form-item label="In Transit Alert — Speedaf (hours)">
             <el-input-number v-model="alertCfg.in_transit_gigl_alert_hours" :min="1" :max="999" :step="1" style="width:100%" />
           </el-form-item>
           <el-button type="primary" :loading="alertSaving" @click="saveAlert">Save</el-button>

@@ -49,8 +49,18 @@ router.get('/', async (req, res) => {
     if (req.query.shipping_status) {
       const statuses = req.query.shipping_status.split(',').filter(Boolean);
       if (statuses.length > 0) {
-        where += ' AND sr.status IN (' + statuses.map(() => '?').join(',') + ')';
-        statuses.forEach(s => params.push(s));
+        const clauses = [];
+        for (const s of statuses) {
+          if (s === 'unassigned') {
+            clauses.push("(sr.id IS NULL OR (sr.delivery_method IS NULL AND sr.status = 'pending'))");
+          } else if (s === 'returned') {
+            clauses.push("sr.status IN ('returned','failed')");
+          } else {
+            clauses.push('sr.status = ?');
+            params.push(s);
+          }
+        }
+        if (clauses.length > 0) where += ' AND (' + clauses.join(' OR ') + ')';
       }
     }
 
@@ -59,12 +69,12 @@ router.get('/', async (req, res) => {
     const alertCfg = {}; alertRows.forEach(r => { alertCfg[r.config_key] = parseInt(r.config_value) || 0; });
     const pendingAlert = alertCfg.pending_alert_hours || 24;
     const transitOwnAlert = alertCfg.in_transit_own_alert_hours || 48;
-    const transitGiglAlert = alertCfg.in_transit_gigl_alert_hours || 120;
+    const transitSpeedafAlert = alertCfg.in_transit_gigl_alert_hours || 120;
     const durationExpr = `CASE WHEN sr.status IN ('pending','in_transit') THEN TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW()) ELSE 0 END`;
     const overdueExpr = `CASE
       WHEN sr.status='pending' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.initiated_at, o.created_at), NOW()) >= ${pendingAlert} THEN 1
       WHEN sr.status='in_transit' AND sr.delivery_method='own' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitOwnAlert} THEN 1
-      WHEN sr.status='in_transit' AND sr.delivery_method='gig' AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitGiglAlert} THEN 1
+      WHEN sr.status='in_transit' AND (sr.delivery_method='speedaf' OR sr.delivery_method='gig') AND TIMESTAMPDIFF(HOUR, COALESCE(sr.status_since, sr.shipped_at, sr.initiated_at, o.created_at), NOW()) >= ${transitSpeedafAlert} THEN 1
       ELSE 0 END`;
 
     // Logistics filter: normal / abnormal
@@ -74,25 +84,19 @@ router.get('/', async (req, res) => {
     const allowedSort = { order_no: 'o.order_no', created_at: 'o.created_at', total_amount: 'o.total_amount', customer_name: 'o.customer_name' };
     const sort_col = allowedSort[sort_by] || 'o.created_at';
     const sort_dir_name = sort_dir === 'asc' ? 'ASC' : 'DESC';
-    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill WHERE o.is_deleted = 0 AND ${where}`, params);
+    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id WHERE o.is_deleted = 0 AND ${where}`, params);
     const [rows] = await pool.query(
-      `SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_address,
+      `SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_phone2, o.customer_address,
+        o.accept_province, o.accept_city, o.accept_district,
         o.streamer_id, o.streamer_name, o.commission_rate, o.payment_status_id, o.payment_status_name,
         o.total_amount, o.actual_amount, o.remark, o.payment_image,
         DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at,
         sr.status AS shipping_status, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
-        COALESCE(gs.is_delivered, 0) AS gigl_delivered,
-        COALESCE(gs.is_cancelled, 0) AS gigl_cancelled,
-        CASE WHEN gs.is_cancelled = 1 THEN 0
-             WHEN gs.is_delivered = 1 THEN 0
-             WHEN EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code = 'DFA') THEN 1
-             ELSE 0 END AS gigl_failed,
         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count,
         ${durationExpr} AS duration_hours,
         ${overdueExpr} AS is_overdue
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
-       LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill
        WHERE o.is_deleted = 0 AND ${where} ORDER BY ${sort_col} ${sort_dir_name} LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page)-1)*parseInt(page_size)]
     );
@@ -255,20 +259,21 @@ router.get('/export', async (req, res) => {
       }
     }
     const [rows] = await pool.query(
-      "SELECT o.order_no,o.customer_name,o.customer_gender,o.customer_phone,o.customer_address,o.streamer_name,o.payment_status_name,o.total_amount,o.actual_amount,o.created_at,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE "+where+" ORDER BY o.created_at DESC,oi.id", params
+      "SELECT o.order_no,o.customer_name,o.customer_gender,o.customer_phone,o.customer_phone2,o.customer_address,o.accept_province,o.accept_city,o.accept_district,o.streamer_name,o.payment_status_name,o.total_amount,o.actual_amount,o.created_at,sr.delivery_method,sr.gig_tracking,oi.product_code,oi.product_name,oi.unit_price,oi.quantity,oi.subtotal FROM orders o LEFT JOIN shipping_records sr ON sr.order_id=o.id JOIN order_items oi ON oi.order_id=o.id WHERE "+where+" ORDER BY o.created_at DESC,oi.id", params
     );
     if (rows.length === 0) return res.status(400).json({ message: 'No data' });
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Orders');
-    const headers = ['Order No.','Customer','Gender','Phone','Address','Streamer','Payment','Total','Actual','Date','Product Code','Product Name','Unit Price','Quantity','Subtotal'];
+    const headers = ['Order No.','Customer','Gender','Phone','Phone2','Address','Province','City','District','Streamer','Payment','Total','Actual','Method','Tracking','Date','Product Code','Product Name','Unit Price','Quantity','Subtotal'];
+    const mergeCount = 15; // columns to merge: up to Tracking
     const headerRow = ws.addRow(headers);
     headerRow.font = { bold: true };
     headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
     // Add data rows
     for (const r of rows) {
-      ws.addRow([r.order_no,r.customer_name,r.customer_gender,r.customer_phone,r.customer_address,r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,String(r.created_at||'').slice(0,10),r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal]);
+      ws.addRow([r.order_no,r.customer_name,r.customer_gender,r.customer_phone,r.customer_phone2||'',r.customer_address,r.accept_province||'LAGOS',r.accept_city||'LAGOS',r.accept_district||'LAGOS',r.streamer_name,r.payment_status_name,r.total_amount,r.actual_amount,r.delivery_method||'',r.gig_tracking||'',String(r.created_at||'').slice(0,10),r.product_code,r.product_name,r.unit_price,r.quantity,r.subtotal]);
     }
 
     // Merge cells by order group
@@ -278,7 +283,7 @@ router.get('/export', async (req, res) => {
       let endRow = row;
       while (endRow < ws.rowCount && ws.getCell(endRow + 1, 1).value === currentOrder) endRow++;
       if (endRow > row) {
-        for (let col = 1; col <= 10; col++) {
+        for (let col = 1; col <= mergeCount; col++) {
           ws.mergeCells(row, col, endRow, col);
         }
       }
@@ -288,13 +293,13 @@ router.get('/export', async (req, res) => {
     // Style: center align merged cells
     ws.eachRow((r, rn) => {
       if (rn > 1) r.eachCell((c, cn) => {
-        if (cn <= 10) c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        if (cn <= mergeCount) c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       });
     });
 
     // Column widths
     ws.columns.forEach((c, i) => {
-      c.width = i < 10 ? 16 : (i < 12 ? 20 : 12);
+      c.width = i < mergeCount ? 16 : (i < 17 ? 20 : 12);
     });
 
     const buf = await wb.xlsx.writeBuffer();
@@ -398,7 +403,7 @@ function escapeHTML(str) {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_address, o.streamer_id, o.streamer_name, o.commission_rate, o.payment_status_id, o.payment_status_name, o.total_amount, o.actual_amount, o.remark, o.payment_image, DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at, sr.status AS shipping_status, sr.shipping_code FROM orders o LEFT JOIN shipping_records sr ON sr.order_id=o.id WHERE o.id=? AND o.is_deleted = 0',[req.params.id]);
+      'SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_phone2, o.customer_address, o.accept_province, o.accept_city, o.accept_district, o.streamer_id, o.streamer_name, o.commission_rate, o.payment_status_id, o.payment_status_name, o.total_amount, o.actual_amount, o.remark, o.payment_image, DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at, sr.status AS shipping_status, sr.shipping_code FROM orders o LEFT JOIN shipping_records sr ON sr.order_id=o.id WHERE o.id=? AND o.is_deleted = 0',[req.params.id]);
     if (rows.length===0) return res.status(404).json({ message: 'Not found' });
     const [items] = await pool.query('SELECT * FROM order_items WHERE order_id=?',[rows[0].id]);
     rows[0].items = items;
@@ -410,7 +415,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const { customer_name, customer_gender, customer_phone, customer_address, order_time, streamer_id, payment_status_id, actual_amount, items } = req.body;
+    const { customer_name, customer_gender, customer_phone, customer_phone2, customer_address, accept_province, accept_city, accept_district, order_time, streamer_id, payment_status_id, actual_amount, items, speedaf: doSpeedaf } = req.body;
     if (!items || !Array.isArray(items) || items.length===0) return res.status(400).json({ message: 'Select at least one product' });
     const prefix = genOrderNo();
     const [lastRows] = await conn.query("SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY id DESC LIMIT 1",[prefix+'%']);
@@ -429,30 +434,65 @@ router.post('/', async (req, res) => {
     let sn='', psn='', cr=0;
     if (streamer_id) { const [sr]=await conn.query('SELECT name,commission_rate FROM streamers WHERE id=?',[streamer_id]); if (sr.length>0) { sn=sr[0].name; cr=sr[0].commission_rate; } }
     if (payment_status_id) { const [ps]=await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]); if (ps.length>0) psn=ps[0].name; }
-    // Pass date strings directly to MySQL — no Date conversion, no timezone corruption
-    // Frontend provides Nigeria date string "YYYY-MM-DD" — pass through as-is
-    const orderTime = order_time || '';
+    const orderTime = order_time || null;
     const paymentImage = req.body.payment_image || '';
+    const prov = accept_province || 'LAGOS';
+    const city = accept_city || 'LAGOS';
+    const dist = accept_district || 'LAGOS';
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_address,order_time,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount,payment_image) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_address||'',orderTime,streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual,paymentImage]
+      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_phone2,customer_address,accept_province,accept_city,accept_district,order_time,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount,payment_image) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_phone2||'',customer_address||'',prov,city,dist,orderTime,streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual,paymentImage]
     );
+    const orderId = orderResult.insertId;
+
     for (const oi of orderItems) {
       await conn.query('INSERT INTO order_items (order_id,product_id,product_code,product_name,unit_price,unit_cost,quantity,subtotal) VALUES (?,?,?,?,?,?,?,?)',
-        [orderResult.insertId,oi.product_id,oi.product_code,oi.product_name,oi.unit_price,oi.unit_cost||0,oi.quantity,oi.subtotal]);
+        [orderId,oi.product_id,oi.product_code,oi.product_name,oi.unit_price,oi.unit_cost||0,oi.quantity,oi.subtotal]);
     }
-    const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
-    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status) VALUES (?,?,'pending')",[orderResult.insertId,shipCode]);
+
     // Save uploaded images
     if (req.body.images && Array.isArray(req.body.images)) {
       for (const img of req.body.images) {
         if (img && img.url) {
-          await conn.query('INSERT INTO order_images (order_id, url, filename) VALUES (?,?,?)', [orderResult.insertId, img.url, img.filename || '']);
+          await conn.query('INSERT INTO order_images (order_id, url, filename) VALUES (?,?,?)', [orderId, img.url, img.filename || '']);
         }
       }
     }
+
     conn.release();
-    res.status(201).json({ id:orderResult.insertId, order_no:orderNo, total_amount:totalAmount });
+
+    // Speedaf flow: create shipping + call API + print label
+    if (doSpeedaf) {
+      try {
+        const speedaf = require('../services/speedaf');
+        const order = { customer_name, customer_phone, customer_phone2, customer_address, accept_province: prov, accept_city: city, accept_district: dist, order_no: orderNo, total_amount: totalAmount };
+        const result = await speedaf.createOrder(order, orderItems);
+        if (result.success && result.data?.billCode) {
+          const billCode = result.data.billCode;
+          const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
+          await pool.query(
+            "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, status, status_since) VALUES (?,?,?,?,?, NOW())",
+            [orderId, shipCode, 'speedaf', billCode, 'pending']
+          );
+          // Get label URL
+          let labelUrl = null;
+          try {
+            const printResult = await speedaf.printLabel(billCode);
+            labelUrl = printResult.data?.urls?.[0] || printResult.data?.orderLabels?.[0]?.labelUrl || null;
+          } catch {}
+          // Subscribe tracking
+          speedaf.trackSubscribe(billCode, 'https://parfco.vip/api/speedaf/webhook').catch(() => {});
+          return res.status(201).json({ id: orderId, order_no: orderNo, total_amount: totalAmount, speedaf: { success: true, billCode, labelUrl } });
+        }
+        return res.status(201).json({ id: orderId, order_no: orderNo, total_amount: totalAmount, speedaf: { success: false, message: result.error?.message || result.data?.message || 'Speedaf failed' } });
+      } catch (e) {
+        console.error('[Speedaf create]', e);
+        return res.status(201).json({ id: orderId, order_no: orderNo, total_amount: totalAmount, speedaf: { success: false, message: e.message } });
+      }
+    }
+
+    // No speedaf — order stays Unassigned (no shipping record)
+    res.status(201).json({ id: orderId, order_no: orderNo, total_amount: totalAmount });
   } catch (err) { conn.release(); console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
@@ -460,7 +500,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const { customer_name, customer_gender, customer_phone, customer_address, order_time, streamer_id, payment_status_id, actual_amount, payment_image, items } = req.body;
+    const { customer_name, customer_gender, customer_phone, customer_phone2, customer_address, accept_province, accept_city, accept_district, order_time, streamer_id, payment_status_id, actual_amount, payment_image, items } = req.body;
     const [orderRows] = await conn.query('SELECT total_amount FROM orders WHERE id=?',[req.params.id]);
     if (orderRows.length===0) { conn.release(); return res.status(404).json({ message: 'Not found' }); }
 
@@ -477,8 +517,8 @@ router.put('/:id', async (req, res) => {
     }
 
     const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),total) : total;
-    const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_address=?','streamer_id=?','payment_status_id=?','actual_amount=?','total_amount=?'];
-    const values = [customer_name,customer_gender,customer_phone,customer_address,streamer_id,payment_status_id,actual,total];
+    const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_phone2=?','customer_address=?','accept_province=?','accept_city=?','accept_district=?','streamer_id=?','payment_status_id=?','actual_amount=?','total_amount=?'];
+    const values = [customer_name,customer_gender,customer_phone,customer_phone2||'',customer_address,accept_province||'LAGOS',accept_city||'LAGOS',accept_district||'LAGOS',streamer_id,payment_status_id,actual,total];
     if (order_time) { updates.push('order_time=?'); values.push(order_time); }
     // Always sync streamer_name from live streamers table — prevents snapshot drift
     if (streamer_id) {

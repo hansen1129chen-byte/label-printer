@@ -9,7 +9,7 @@ const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
 const shippingRoutes = require('./routes/shipping');
 const statsRoutes = require('./routes/stats');
-const giglRoutes = require('./routes/gigl');
+const { router: speedafRoutes, webhookRouter: speedafWebhook } = require('./routes/speedaf');
 const whatsappFlowRoutes = require('./routes/whatsapp-flow');
 const parseWhatsappRoutes = require('./routes/parse-whatsapp');
 const customerRoutes = require('./routes/customers');
@@ -17,6 +17,9 @@ const customerRoutes = require('./routes/customers');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Speedaf webhook (plain JSON push from Speedaf, no auth)
+app.use('/api/speedaf', speedafWebhook);
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/whatsapp-flow', (req, res, next) => {
@@ -30,7 +33,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/shipping', shippingRoutes);
 app.use('/api/stats', statsRoutes);
-app.use('/api/gigl', giglRoutes);
+app.use('/api/speedaf', speedafRoutes);
 app.use('/api/whatsapp-flow', whatsappFlowRoutes);
 app.use('/api/parse-whatsapp', parseWhatsappRoutes);
 app.use('/api/customers', customerRoutes);
@@ -57,15 +60,10 @@ app.get('/api/public/track', async (req, res) => {
         CONCAT(REPEAT('*', GREATEST(0, CHAR_LENGTH(o.customer_phone)-4)), RIGHT(o.customer_phone,4)) AS masked_phone,
         o.total_amount, o.actual_amount,
         sr.status AS shipping_status, sr.delivery_method,
-        sr.gig_tracking, sr.delivery_staff_name,
-        COALESCE(gs.is_delivered,0) AS gigl_delivered,
-        COALESCE(gs.is_cancelled,0) AS gigl_cancelled,
-        COALESCE(gs.current_scan_status,'') AS current_scan_status,
-        COALESCE(gs.destination,'') AS destination
-       FROM orders o AND o.is_deleted = 0
+        sr.gig_tracking, sr.delivery_staff_name
+       FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
-       LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill
-       WHERE ${where} ORDER BY o.created_at DESC LIMIT 10`, params
+       WHERE o.is_deleted = 0 AND ${where} ORDER BY o.created_at DESC LIMIT 10`, params
     );
 
     const results = [];
@@ -77,6 +75,18 @@ app.get('/api/public/track', async (req, res) => {
           [row.gig_tracking]
         );
         events = evtRows;
+      } else if (row.delivery_method === 'speedaf' && row.gig_tracking) {
+        try {
+          const speedaf = require('./services/speedaf');
+          const result = await speedaf.trackQuery(row.gig_tracking);
+          const tracks = result.data || [];
+          events = tracks.map(t => ({
+            event_time: t.time || t.scanTime,
+            location: t.location || '',
+            status_code: String(t.action || t.scanStatus || ''),
+            status_description: t.actionName || t.description || t.statusDescription || '',
+          }));
+        } catch (e) { /* keep events empty */ }
       }
       results.push({ ...row, events });
     }
