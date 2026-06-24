@@ -10,7 +10,7 @@ let areaData = [];
 const path = require('path');
 const fs = require('fs');
 try {
-  const dataPath = path.join(__dirname, '..', '..', '..', 'client', 'public', 'nigeria-areas.json');
+  const dataPath = path.join(__dirname, '..', '..', 'dist', 'nigeria-areas.json');
   areaData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 } catch (e) { console.log('[Parse] Area data load skipped:', e.message); }
 
