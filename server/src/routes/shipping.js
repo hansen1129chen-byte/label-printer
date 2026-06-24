@@ -108,8 +108,8 @@ router.post('/create', async (req, res) => {
 
     const code = genShippingCode();
     await pool.query(
-      "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, delivery_staff_id, delivery_staff_name, status, status_since) VALUES (?,?,?,?,?,?, NOW())",
-      [order_id, code, 'own', delivery_staff_id, staffName, 'pending']
+      "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, delivery_staff_id, delivery_staff_name, status, status_since, shipped_at) VALUES (?,?,?,?,?,?, NOW(), NOW())",
+      [order_id, code, 'own', delivery_staff_id, staffName, 'in_transit']
     );
     res.status(201).json({ code });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
@@ -156,12 +156,12 @@ router.post('/:id/action', async (req, res) => {
         if (ds.length > 0) staffName = ds[0].name;
       }
       await pool.query(
-        "UPDATE shipping_records SET delivery_method='own', delivery_staff_id=?, delivery_staff_name=?, status='pending', status_since=NOW(), shipped_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?",
+        "UPDATE shipping_records SET delivery_method='own', delivery_staff_id=?, delivery_staff_name=?, status='in_transit', status_since=NOW(), shipped_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?",
         [delivery_staff_id || null, staffName, operator || '', rec.id]
       );
       await logAction(rec.id, 'confirm_ship', 'Method: OWN ' + staffName, operator);
       notifyCustomer(pool, rec.id, 'in_transit');
-      return res.json({ message: 'Shipped', status: 'pending' });
+      return res.json({ message: 'Shipped', status: 'in_transit' });
     }
 
     // Cancel pending → back to unassigned (clear shipping record)
