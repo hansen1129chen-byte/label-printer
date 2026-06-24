@@ -218,11 +218,11 @@ router.post('/cancel', async (req, res) => {
       const itemResult = result.data?.[0] || {};
       if (itemResult.success) {
         await pool.query(
-          "UPDATE shipping_records SET delivery_method = NULL, gig_tracking = '', delivery_staff_id = NULL, delivery_staff_name = '', status = 'pending', status_since = NOW(), shipped_at = NULL, updated_at = NOW(), updated_by = ? WHERE gig_tracking = ?",
+          "UPDATE shipping_records SET delivery_method = NULL, gig_tracking = '', delivery_staff_id = NULL, delivery_staff_name = '', status = 'unassigned', status_since = NOW(), shipped_at = NULL, updated_at = NOW(), updated_by = ? WHERE gig_tracking = ?",
           [req.user?.username || 'admin', billCode]
         );
-        await upsertShipment(billCode, { status: 'pending', status_desc: 'Cancelled back to Unassigned: ' + (reason || 'Customer request') });
-        return res.json({ success: true, message: 'Cancelled — back to Unassigned' });
+        await upsertShipment(billCode, { status: 'unassigned', status_desc: 'Rollback to Unassigned: ' + (reason || 'Customer request') });
+        return res.json({ success: true, message: 'Rollback — back to Unassigned' });
       }
       return res.json({ success: false, message: itemResult.message || 'Cancel rejected by Speedaf' });
     }

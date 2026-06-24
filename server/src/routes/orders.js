@@ -52,7 +52,7 @@ router.get('/', async (req, res) => {
         const clauses = [];
         for (const s of statuses) {
           if (s === 'unassigned') {
-            clauses.push("(sr.id IS NULL OR (sr.delivery_method IS NULL AND sr.status = 'pending'))");
+            clauses.push("(sr.id IS NULL OR sr.status = 'unassigned')");
           } else if (s === 'returned') {
             clauses.push("sr.status IN ('returned','failed')");
           } else {

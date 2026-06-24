@@ -67,11 +67,12 @@
                 </template>
                 <!-- Pending -->
                 <template v-if="activeTab === 'pending'">
-                  <el-dropdown-item command="cancel">Cancel</el-dropdown-item>
+                  <el-dropdown-item command="rollback">Rollback</el-dropdown-item>
                 </template>
-                <!-- In Transit — only deliver for own/gig -->
+                <!-- In Transit — own/gig only -->
                 <template v-if="activeTab === 'in_transit' && row.delivery_method !== 'speedaf'">
                   <el-dropdown-item command="deliver">Deliver</el-dropdown-item>
+                  <el-dropdown-item command="rollback">Rollback</el-dropdown-item>
                 </template>
                 <!-- Void — own/gig method, admin only, not in voided/returned/cancelled -->
                 <template v-if="['unassigned','pending','in_transit','delivered'].includes(activeTab) && row.delivery_method !== 'speedaf' && user?.role === 'admin'">
@@ -166,7 +167,7 @@ function handleAction(row, cmd) {
   switch (cmd) {
     case 'ship': openShipDialog(row); break
     case 'speedaf': speedafCreate(row); break
-    case 'cancel': doAction(row, 'cancel'); break
+    case 'rollback': doAction(row, 'rollback'); break
     case 'deliver': doAction(row, 'deliver'); break
     case 'void': voidOrder(row); break
     case 'view': viewRecord(row); break

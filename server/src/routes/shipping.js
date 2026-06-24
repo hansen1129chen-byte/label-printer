@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
 
     // Status tab filter
     if (status === 'unassigned') {
-      where += " AND (sr.id IS NULL OR (sr.delivery_method IS NULL AND sr.status = 'pending'))";
+      where += " AND (sr.id IS NULL OR sr.status = 'unassigned')";
     } else if (status === 'pending') {
       where += " AND sr.status = 'pending' AND sr.delivery_method IS NOT NULL";
     } else if (status === 'returned') {
@@ -164,9 +164,11 @@ router.post('/:id/action', async (req, res) => {
       return res.json({ message: 'Shipped', status: 'in_transit' });
     }
 
-    // Cancel pending → back to unassigned (clear shipping record)
-    if (action === 'cancel') {
-      if (rec.status !== 'pending') return res.status(400).json({ message: 'Cancel only from pending' });
+    // Rollback → back to unassigned (clear shipping record)
+    if (action === 'rollback') {
+      const allowed = ['pending', 'in_transit'];
+      if (!allowed.includes(rec.status)) return res.status(400).json({ message: `Cannot rollback from ${rec.status}` });
+      if (rec.delivery_method === 'speedaf') return res.status(400).json({ message: 'Speedaf orders: use Speedaf Cancel instead' });
       // Cancel Speedaf waybill if applicable
       if (rec.delivery_method === 'speedaf' && rec.gig_tracking) {
         try {
@@ -175,11 +177,11 @@ router.post('/:id/action', async (req, res) => {
         } catch (e) { /* log but proceed */ }
       }
       await pool.query(
-        "UPDATE shipping_records SET delivery_method=NULL, gig_tracking='', delivery_staff_id=NULL, delivery_staff_name='', status='pending', status_since=NOW(), shipped_at=NULL, updated_at=NOW(), updated_by=? WHERE id=?",
+        "UPDATE shipping_records SET delivery_method=NULL, gig_tracking='', delivery_staff_id=NULL, delivery_staff_name='', status='unassigned', status_since=NOW(), shipped_at=NULL, updated_at=NOW(), updated_by=? WHERE id=?",
         [operator || '', rec.id]
       );
-      await logAction(rec.id, 'cancel', 'Cancelled to unassigned', operator);
-      return res.json({ message: 'Cancelled', status: 'unassigned' });
+      await logAction(rec.id, 'rollback', 'Rollback to unassigned', operator);
+      return res.json({ message: 'Rollback', status: 'unassigned' });
     }
 
     // Deliver — only for own/gig deliveries in transit
