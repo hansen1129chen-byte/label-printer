@@ -168,7 +168,7 @@ router.post('/:id/action', async (req, res) => {
     if (action === 'rollback') {
       const allowed = ['pending', 'in_transit'];
       if (!allowed.includes(rec.status)) return res.status(400).json({ message: `Cannot rollback from ${rec.status}` });
-      if (rec.delivery_method === 'speedaf') return res.status(400).json({ message: 'Speedaf orders: use Speedaf Cancel instead' });
+      if (rec.status === 'in_transit' && rec.delivery_method === 'speedaf') return res.status(400).json({ message: 'Speedaf in_transit orders cannot rollback' });
       // Cancel Speedaf waybill if applicable
       if (rec.delivery_method === 'speedaf' && rec.gig_tracking) {
         try {
