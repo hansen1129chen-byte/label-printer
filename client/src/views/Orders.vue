@@ -103,7 +103,7 @@
         <template #default="{row}">
           <el-button link type="primary" size="small" @click="$router.push(`/Livestream_Management/orders/${row.id}/edit`)">Edit</el-button>
           <el-button link type="primary" size="small" @click="viewDetail(row)">View</el-button>
-          <el-popconfirm title="Print Speedaf label?" @confirm="printLabel(row)">
+          <el-popconfirm v-if="row.delivery_method === 'speedaf'" title="Print Speedaf label?" @confirm="printLabel(row)">
             <template #reference><el-button link type="success" size="small">Label</el-button></template>
           </el-popconfirm>
           <el-popconfirm v-if="isAdmin" title="Delete?" @confirm="handleDelete(row.id)">
