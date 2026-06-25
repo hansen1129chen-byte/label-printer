@@ -103,7 +103,7 @@
         <template #default="{row}">
           <el-button link type="primary" size="small" @click="$router.push(`/Livestream_Management/orders/${row.id}/edit`)">Edit</el-button>
           <el-button link type="primary" size="small" @click="viewDetail(row)">View</el-button>
-          <el-popconfirm title="Print label?" @confirm="printLabel(row.id)">
+          <el-popconfirm title="Print Speedaf label?" @confirm="printLabel(row)">
             <template #reference><el-button link type="success" size="small">Label</el-button></template>
           </el-popconfirm>
           <el-popconfirm v-if="isAdmin" title="Delete?" @confirm="handleDelete(row.id)">
@@ -268,7 +268,19 @@ function exportCSV() {
 }
 
 async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
-function printLabel(id) { window.open('/api/orders/' + id + '/print?token=' + getToken(), '_blank') }
+async function printLabel(row) {
+  if (row.delivery_method === 'speedaf' && row.gig_tracking) {
+    // Call Speedaf print API
+    try {
+      const { data } = await api.post('/speedaf/print/' + row.gig_tracking)
+      if (data.url) { window.open(data.url, '_blank') }
+      else { ElMessage.warning('Print label not available') }
+    } catch { ElMessage.error('Print failed') }
+  } else {
+    // Fallback to HTML label
+    window.open('/api/orders/' + row.id + '/print?token=' + getToken(), '_blank')
+  }
+}
 
 async function doBatchStreamer() {
   batchSaving.value = true
