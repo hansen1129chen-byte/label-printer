@@ -69,7 +69,7 @@ router.get('/', async (req, res) => {
     const sortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
 
     const [rows] = await pool.query(
-      `SELECT sr.id, sr.order_id, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
+      `SELECT sr.id, o.id AS order_id, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
         sr.delivery_staff_id, sr.status, sr.status_since, sr.initiated_at, sr.updated_at,
         sr.shipped_at, sr.returned_at, sr.updated_by,
         ds.name AS delivery_staff_name,
