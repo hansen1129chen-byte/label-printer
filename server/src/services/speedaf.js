@@ -67,7 +67,7 @@ async function createOrder(order, orderItems) {
     deliveryType: 'DE01',
     transportType: 'TT01',
     shipType: 'ST01',
-    payMethod: 'PA01',
+    payMethod: 'PA02',
     pickUpAging: 0,
     ...CONFIG.sender,
     acceptName: order.customer_name || '',
