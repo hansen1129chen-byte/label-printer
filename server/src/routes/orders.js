@@ -436,9 +436,9 @@ router.post('/', async (req, res) => {
     if (payment_status_id) { const [ps]=await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]); if (ps.length>0) psn=ps[0].name; }
     const orderTime = order_time || null;
     const paymentImage = req.body.payment_image || '';
-    const prov = accept_province || 'LAGOS';
-    const city = accept_city || 'LAGOS';
-    const dist = accept_district || 'LAGOS';
+    const prov = accept_province || '';
+    const city = accept_city || '';
+    const dist = accept_district || '';
     const [orderResult] = await conn.query(
       'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_phone2,customer_address,accept_province,accept_city,accept_district,order_time,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount,payment_image) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_phone2||'',customer_address||'',prov,city,dist,orderTime,streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual,paymentImage]
@@ -518,7 +518,7 @@ router.put('/:id', async (req, res) => {
 
     const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),total) : total;
     const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_phone2=?','customer_address=?','accept_province=?','accept_city=?','accept_district=?','streamer_id=?','payment_status_id=?','actual_amount=?','total_amount=?'];
-    const values = [customer_name,customer_gender,customer_phone,customer_phone2||'',customer_address,accept_province||'LAGOS',accept_city||'LAGOS',accept_district||'LAGOS',streamer_id,payment_status_id,actual,total];
+    const values = [customer_name,customer_gender,customer_phone,customer_phone2||'',customer_address,accept_province||'',accept_city||'',accept_district||'',streamer_id,payment_status_id,actual,total];
     if (order_time) { updates.push('order_time=?'); values.push(order_time); }
     // Always sync streamer_name from live streamers table — prevents snapshot drift
     if (streamer_id) {
