@@ -59,12 +59,11 @@ router.post('/create', async (req, res) => {
       [order_id]
     );
 
-    // Check if already has active shipping
+    // Check if there's an existing unassigned record to reuse
     const [existing] = await pool.query(
-      "SELECT id FROM shipping_records WHERE order_id = ? AND status NOT IN ('returned','voided','cancelled','unassigned')",
+      "SELECT id FROM shipping_records WHERE order_id = ? AND status = 'unassigned'",
       [order_id]
     );
-    if (existing.length > 0) return res.status(400).json({ message: 'Already has active shipping' });
 
     const result = await speedaf.createOrder(order, items);
     if (!result.success || !result.data?.billCode) {
@@ -72,13 +71,20 @@ router.post('/create', async (req, res) => {
     }
 
     const billCode = result.data.billCode;
-    const shippingCode = 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
 
-    // Create shipping record
-    await pool.query(
-      "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, status, status_since) VALUES (?,?,?,?,?, NOW())",
-      [order_id, shippingCode, 'speedaf', billCode, 'pending']
-    );
+    if (existing.length > 0) {
+      // Reuse existing unassigned record
+      await pool.query(
+        "UPDATE shipping_records SET delivery_method='speedaf', gig_tracking=?, status='pending', status_since=NOW(), updated_at=NOW() WHERE id=?",
+        [billCode, existing[0].id]
+      );
+    } else {
+      const shippingCode = 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+      await pool.query(
+        "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, status, status_since) VALUES (?,?,?,?,?, NOW())",
+        [order_id, shippingCode, 'speedaf', billCode, 'pending']
+      );
+    }
 
     // Get shipping ID for reference
     const [sr] = await pool.query('SELECT id FROM shipping_records WHERE gig_tracking = ?', [billCode]);

@@ -95,23 +95,31 @@ router.post('/create', async (req, res) => {
     const { order_id, delivery_staff_id } = req.body;
     if (!order_id || !delivery_staff_id) return res.status(400).json({ message: 'Missing fields' });
 
-    // Check no active shipping
+    // Check if there's an existing unassigned record to reuse
     const [existing] = await pool.query(
-      "SELECT id FROM shipping_records WHERE order_id = ? AND status NOT IN ('returned','voided','cancelled','unassigned')",
+      "SELECT id FROM shipping_records WHERE order_id = ? AND status = 'unassigned'",
       [order_id]
     );
-    if (existing.length > 0) return res.status(400).json({ message: 'Already has active shipping' });
 
     let staffName = '';
     const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id = ?', [delivery_staff_id]);
     if (ds.length > 0) staffName = ds[0].name;
 
-    const code = genShippingCode();
-    await pool.query(
-      "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, delivery_staff_id, delivery_staff_name, status, status_since, shipped_at) VALUES (?,?,?,?,?,?, NOW(), NOW())",
-      [order_id, code, 'own', delivery_staff_id, staffName, 'in_transit']
-    );
-    res.status(201).json({ code });
+    if (existing.length > 0) {
+      // Reuse existing unassigned record
+      await pool.query(
+        "UPDATE shipping_records SET delivery_method='own', delivery_staff_id=?, delivery_staff_name=?, status='in_transit', status_since=NOW(), shipped_at=NOW(), updated_at=NOW() WHERE id=?",
+        [delivery_staff_id, staffName, existing[0].id]
+      );
+      res.status(200).json({ code: 'reused', id: existing[0].id });
+    } else {
+      const code = genShippingCode();
+      await pool.query(
+        "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, delivery_staff_id, delivery_staff_name, status, status_since, shipped_at) VALUES (?,?,?,?,?,?, NOW(), NOW())",
+        [order_id, code, 'own', delivery_staff_id, staffName, 'in_transit']
+      );
+      res.status(201).json({ code });
+    }
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
