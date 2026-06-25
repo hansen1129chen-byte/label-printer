@@ -123,7 +123,7 @@ const items = ref([{ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }
 const form = ref({
   customer_name: '', customer_gender: '', customer_phone: '', customer_phone2: '', customer_address: '',
   accept_province: 'LAGOS', accept_city: 'LAGOS', accept_district: 'LAGOS',
-  streamer_id: null, payment_status_id: 1, actual_amount: 0,
+  streamer_id: Number(localStorage.getItem('lp_last_streamer')) || null, payment_status_id: 1, actual_amount: 0,
   order_time: new Date().toISOString().slice(0, 10),
   payment_image: ''
 })
@@ -215,6 +215,7 @@ async function handleSave(doSpeedaf = false) {
     } else {
       const { data } = await api.post('/orders', payload)
       if (doSpeedaf && data.speedaf?.success) {
+        if (form.value.streamer_id) localStorage.setItem('lp_last_streamer', form.value.streamer_id)
         ElMessage.success('Order created! Tracking: ' + data.speedaf.billCode)
         if (data.speedaf.labelUrl) {
           window.open(data.speedaf.labelUrl, '_blank')
@@ -224,6 +225,7 @@ async function handleSave(doSpeedaf = false) {
       } else if (doSpeedaf) {
         ElMessage.warning('Order saved, but Speedaf failed: ' + (data.speedaf?.message || 'unknown error'))
       } else {
+        if (form.value.streamer_id) localStorage.setItem('lp_last_streamer', form.value.streamer_id)
         ElMessage.success('Order created')
       }
       router.replace('/Livestream_Management/orders')
@@ -250,15 +252,6 @@ async function loadOrder() {
 
 // Auto-sync actual_amount with total for new orders
 watch(totalAmount, (v) => { if (!isEdit.value) form.value.actual_amount = v })
-
-// Check returning customer by phone
-watch(() => form.value.customer_phone, async (v) => {
-  if (!v || v.length !== 11 || isEdit.value) return
-  try {
-    const { data } = await api.get('/orders/last-streamer', { params: { phone: v } })
-    if (data.found && data.streamer_id) { form.value.streamer_id = data.streamer_id }
-  } catch {}
-})
 
 // Watch product_id & quantity changes
 watch(
