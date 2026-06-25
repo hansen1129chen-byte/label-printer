@@ -17,8 +17,8 @@
       </el-row>
       <el-row :gutter="16">
         <el-col :span="5"><el-form-item label="Province" required><el-select v-model="form.accept_province" filterable allow-create placeholder="Select" @change="onProvinceChange" style="width:100%"><el-option v-for="o in provinceOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
-        <el-col :span="5"><el-form-item label="City" required><el-select v-model="form.accept_city" filterable allow-create placeholder="Select" @change="onCityChange" style="width:100%"><el-option v-for="o in cityOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
-        <el-col :span="5"><el-form-item label="District" required><el-select v-model="form.accept_district" filterable allow-create placeholder="Select" style="width:100%"><el-option v-for="o in districtOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
+        <el-col :span="5"><el-form-item label="City"><el-select v-model="form.accept_city" filterable allow-create placeholder="Select" @change="onCityChange" style="width:100%"><el-option v-for="o in cityOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
+        <el-col :span="5"><el-form-item label="District"><el-select v-model="form.accept_district" filterable allow-create placeholder="Select" style="width:100%"><el-option v-for="o in districtOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
         <el-col :span="9"><el-form-item label="Address" required><el-input v-model="form.customer_address" type="textarea" :rows="2" placeholder="Delivery address" /></el-form-item></el-col>
       </el-row>
 
@@ -192,7 +192,7 @@ function removeItem(idx) { items.value.splice(idx, 1) }
 
 async function handleSave(doSpeedaf = false) {
   const f = form.value
-  if (!f.customer_name || !f.customer_gender || !f.customer_phone || !f.customer_address || !f.accept_province || !f.accept_city || !f.accept_district || !f.streamer_id || !f.payment_status_id) {
+  if (!f.customer_name || !f.customer_gender || !f.customer_phone || !f.customer_address || !f.accept_province || !f.streamer_id || !f.payment_status_id) {
     ElMessage.warning('All fields are required'); return
   }
   if (!/^\d{11}$/.test(f.customer_phone)) { ElMessage.warning('Phone must be 11 digits'); return }
