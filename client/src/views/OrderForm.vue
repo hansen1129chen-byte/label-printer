@@ -107,21 +107,15 @@ const cityOptions = ref([])
 const districtOptions = ref([])
 
 function onProvinceChange() {
+  form.value.accept_city = ''; form.value.accept_district = ''
   const st = areaData.find(s => s.state === form.value.accept_province)
   cityOptions.value = st ? st.lgas.map(l => l.name) : []
-  // Only clear city/district if current value is no longer valid
-  if (form.value.accept_city && !cityOptions.value.includes(form.value.accept_city)) {
-    form.value.accept_city = ''; form.value.accept_district = ''
-  }
 }
 function onCityChange() {
+  form.value.accept_district = ''
   const st = areaData.find(s => s.state === form.value.accept_province)
   const lga = st?.lgas?.find(l => l.name === form.value.accept_city)
   districtOptions.value = lga ? (lga.wards || []).map(w => w.name) : []
-  // Only clear district if current value is no longer valid
-  if (form.value.accept_district && !districtOptions.value.includes(form.value.accept_district)) {
-    form.value.accept_district = ''
-  }
 }
 
 const items = ref([{ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }])
