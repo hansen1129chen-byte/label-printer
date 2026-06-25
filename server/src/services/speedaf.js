@@ -10,11 +10,11 @@ const CONFIG = {
   sender: {
     sendName: 'PARFCO',
     sendMobile: '09138666675',
-    sendAddress: 'Victoria island, Lagos',
-    sendCityName: 'LAGOS',
+    sendAddress: 'Land Bridge Ave',
+    sendCityName: 'Lagos Island',
     sendCountryCode: 'NG',
-    sendProvinceName: 'LAGOS',
-    sendDistrictName: 'LAGOS',
+    sendProvinceName: 'Lagos',
+    sendDistrictName: 'Victoria Island',
   },
 
   baseUrl: 'https://apis.speedaf.com/open-api/express',
