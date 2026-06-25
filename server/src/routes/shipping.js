@@ -97,7 +97,7 @@ router.post('/create', async (req, res) => {
 
     // Check no active shipping
     const [existing] = await pool.query(
-      "SELECT id FROM shipping_records WHERE order_id = ? AND status NOT IN ('returned','voided','cancelled')",
+      "SELECT id FROM shipping_records WHERE order_id = ? AND status NOT IN ('returned','voided','cancelled','unassigned')",
       [order_id]
     );
     if (existing.length > 0) return res.status(400).json({ message: 'Already has active shipping' });
