@@ -469,11 +469,20 @@ router.post('/', async (req, res) => {
         const result = await speedaf.createOrder(order, orderItems);
         if (result.success && result.data?.billCode) {
           const billCode = result.data.billCode;
-          const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
-          await pool.query(
-            "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, status, status_since) VALUES (?,?,?,?,?, NOW())",
-            [orderId, shipCode, 'speedaf', billCode, 'pending']
-          );
+          // Reuse existing unassigned record if present, otherwise create
+          const [exists] = await pool.query("SELECT id FROM shipping_records WHERE order_id = ? AND status = 'unassigned'", [orderId]);
+          if (exists.length > 0) {
+            await pool.query(
+              "UPDATE shipping_records SET delivery_method='speedaf', gig_tracking=?, status='pending', status_since=NOW(), updated_at=NOW() WHERE id=?",
+              [billCode, exists[0].id]
+            );
+          } else {
+            const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
+            await pool.query(
+              "INSERT INTO shipping_records (order_id, shipping_code, delivery_method, gig_tracking, status, status_since) VALUES (?,?,?,?,?, NOW())",
+              [orderId, shipCode, 'speedaf', billCode, 'pending']
+            );
+          }
           // Get label URL
           let labelUrl = null;
           try {
