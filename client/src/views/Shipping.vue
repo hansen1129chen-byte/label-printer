@@ -194,8 +194,15 @@ async function confirmShip() {
 
 async function speedafCreate(row) {
   try {
-    await api.post('/speedaf/create', { order_id: row.order_id })
-    ElMessage.success('Speedaf created')
+    const { data } = await api.post('/speedaf/create', { order_id: row.order_id })
+    if (data.billCode) {
+      // Also print the label
+      try {
+        const printRes = await api.post('/speedaf/print/' + data.billCode)
+        if (printRes.data.url) { window.open(printRes.data.url, '_blank') }
+      } catch {}
+      ElMessage.success('Speedaf created — ' + data.billCode)
+    }
     loadList()
   } catch (err) { ElMessage.error(err.response?.data?.message || 'Speedaf failed') }
 }
