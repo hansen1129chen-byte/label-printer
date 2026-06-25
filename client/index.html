@@ -114,7 +114,7 @@
           if (data.province) { await setSelectByLabel('Province', data.province) }
           if (data.city) { await setSelectByLabel('City', data.city) }
           if (data.district) { await setSelectByLabel('District', data.district) }
-          // Gender
+          if (data.gender) {
             const genderLabels = form.querySelectorAll('.el-form-item__label');
             for (const label of genderLabels) {
               if (label.textContent.trim() === 'Gender') {
