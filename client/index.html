@@ -110,11 +110,8 @@
           // Phone 2
           const phone2Input = form.querySelector('input[placeholder*="Alternate phone"]')
           if (phone2Input && data.phone2) { nativeSet.call(phone2Input, data.phone2); phone2Input.dispatchEvent(new Event('input', { bubbles: true })) }
-          // Province / City / District — first pass triggers cascading, second pass fixes overwrites
+          // Province / City / District — click to open dropdown, select, click away
           if (data.province) { await setSelectByLabel('Province', data.province) }
-          if (data.city)     { await setSelectByLabel('City', data.city) }
-          if (data.district) { await setSelectByLabel('District', data.district) }
-          // onProvinceChange clears city/district, onCityChange clears district — restore them
           if (data.city)     { await setSelectByLabel('City', data.city) }
           if (data.district) { await setSelectByLabel('District', data.district) }
           if (data.gender) {
