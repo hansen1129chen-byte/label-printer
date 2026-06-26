@@ -39,7 +39,7 @@ async function syncActiveShipments() {
             await pool.query(
               `INSERT IGNORE INTO speedaf_tracking_events (waybill, event_time, location, status_code, status_description, operator_name)
                VALUES (?, ?, ?, ?, ?, ?)`,
-              [row.waybill, eventTime, t.location || '', statusCode, (t.actionName || t.description || ''), (t.operatorName || '')]
+              [row.waybill, eventTime, t.location || '', statusCode, (t.msgEng || t.actionName || t.description || ''), (t.operatorName || '')]
             );
           } catch {}
         }

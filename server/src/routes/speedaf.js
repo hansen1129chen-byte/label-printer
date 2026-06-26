@@ -146,7 +146,7 @@ router.get('/track/:billCode', async (req, res) => {
         event_time: t.time || t.scanTime || '',
         location: t.location || '',
         status_code: String(t.action || t.scanStatus || ''),
-        status_description: t.actionName || t.description || t.statusDescription || '',
+        status_description: t.msgEng || t.actionName || t.description || t.statusDescription || '',
         operator_name: t.operatorName || '',
       }));
       await insertTrackingEvents(events);
@@ -154,7 +154,7 @@ router.get('/track/:billCode', async (req, res) => {
       const last = tracks[tracks.length - 1];
       const code = String(last.action || last.scanStatus || '');
       speedafStatus = STATUS_MAP[code] || 'pending';
-      lastEvent = (last.actionName || last.description || '') + ' - ' + (last.location || '');
+      lastEvent = (last.msgEng || last.actionName || last.description || '') + ' - ' + (last.location || '');
 
       // Update speedaf_shipments
       await upsertShipment(billCode, { status: speedafStatus, status_desc: lastEvent, tracking_raw: JSON.stringify(tracks) });
@@ -208,7 +208,7 @@ router.post('/sync', async (req, res) => {
     const last = tracks[tracks.length - 1];
     const code = String(last.action || last.scanStatus || '');
     const newStatus = STATUS_MAP[code];
-    const lastEvent = (last.actionName || last.description || '') + ' - ' + (last.location || '');
+    const lastEvent = (last.msgEng || last.actionName || last.description || '') + ' - ' + (last.location || '');
 
     if (newStatus) {
       await pool.query(
