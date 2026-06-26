@@ -122,6 +122,23 @@
           <el-table-column prop="subtotal" label="Subtotal" width="120"><template #default="{row}">₦{{ Number(row.subtotal).toLocaleString() }}</template></el-table-column>
         </el-table>
         <div style="text-align:right;margin-top:8px;font-size:16px;font-weight:700">Total: ₦{{ Number(viewData.total_amount).toLocaleString() }}</div>
+
+        <!-- Tracking Timeline -->
+        <template v-if="viewData.delivery_method === 'speedaf' && viewData.gig_tracking">
+          <h4 style="margin:16px 0 8px">Tracking Timeline</h4>
+          <div v-if="trackingLoading" style="text-align:center;padding:12px;color:var(--fg-muted)">Loading...</div>
+          <el-timeline v-else-if="trackingEvents.length > 0">
+            <el-timeline-item
+              v-for="evt in trackingEvents" :key="evt.id || evt.event_time"
+              :timestamp="fmtDate(evt.event_time)" placement="top"
+              :color="timelineColor(evt.status_code)"
+            >
+              <div style="font-weight:600">{{ evt.status_description || evt.status_code }}</div>
+              <div style="font-size:12px;color:var(--fg-muted);margin-top:2px">{{ evt.location || '' }} · {{ evt.operator_name || '' }}</div>
+            </el-timeline-item>
+          </el-timeline>
+          <p v-else style="color:var(--fg-muted);text-align:center;padding:12px">No tracking events yet</p>
+        </template>
       </template>
     </el-dialog>
   </div>
@@ -140,6 +157,8 @@ const list = ref([]); const total = ref(0); const page = ref(1); const pageSize 
 const loading = ref(false)
 const showShipDialog = ref(false); const showView = ref(false)
 const shipForm = ref({ delivery_staff_id: null }); const shipTargetId = ref(null)
+const trackingEvents = ref([])
+const trackingLoading = ref(false)
 const shipTargetOrderId = ref(null)
 const viewData = ref(null)
 const deliveryStaff = ref([]); const selectedRows = ref([])
@@ -224,15 +243,34 @@ async function doAction(row, action) {
 }
 
 async function viewRecord(row) {
+  trackingEvents.value = []
+  trackingLoading.value = false
   try {
     const { data } = await api.get(`/orders/${row.order_id}`)
-    // Attach shipping info
     data.delivery_method = row.delivery_method
     data.gig_tracking = row.gig_tracking
     data.delivery_staff_name = row.delivery_staff_name
     data.status = row.status
     viewData.value = data; showView.value = true
+    // Fetch tracking events for speedaf
+    if (row.delivery_method === 'speedaf' && row.gig_tracking) {
+      trackingLoading.value = true
+      try {
+        const res = await api.get('/speedaf/events/' + row.gig_tracking)
+        trackingEvents.value = res.data || []
+      } catch {}
+      trackingLoading.value = false
+    }
   } catch (err) { ElMessage.error('Failed to load order') }
+}
+
+function timelineColor(code) {
+  const c = String(code)
+  if (c === '1' || c === '2' || c === '3' || c === '4') return '#409eff'
+  if (c === '5') return '#67c23a'
+  if (c === '-710' || c === '730') return '#e6a23c'
+  if (c === '-10') return '#f56c6c'
+  return '#909399'
 }
 
 function onSelectionChange(rows) { selectedRows.value = rows }

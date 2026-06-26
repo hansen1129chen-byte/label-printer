@@ -170,6 +170,20 @@ router.get('/track/:billCode', async (req, res) => {
   }
 });
 
+// GET /api/speedaf/events/:billCode — local tracking events
+router.get('/events/:billCode', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT event_time, location, status_code, status_description, operator_name FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time ASC',
+      [req.params.billCode]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[Speedaf events]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // POST /api/speedaf/sync — force sync local status from Speedaf
 router.post('/sync', async (req, res) => {
   try {
