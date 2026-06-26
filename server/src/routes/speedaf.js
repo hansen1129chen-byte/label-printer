@@ -245,7 +245,7 @@ webhookRouter.post('/webhook', async (req, res) => {
   try {
     const payload = Array.isArray(req.body) ? req.body : [req.body];
     for (const item of payload) {
-      const { mailNo, action, scanStatus, scanTime, location, description, actionName, operatorName } = item;
+      const { mailNo, action, scanStatus, time, location, description, actionName, operatorName } = item;
       const statusCode = String(action || scanStatus || '');
       console.log('[Speedaf Webhook]', mailNo, statusCode, description || actionName);
 
@@ -253,7 +253,7 @@ webhookRouter.post('/webhook', async (req, res) => {
         // Store tracking event
         await insertTrackingEvents([{
           waybill: mailNo,
-          event_time: scanTime || '',
+          event_time: time || scanStatus || '',
           location: location || '',
           status_code: statusCode,
           status_description: actionName || description || '',
