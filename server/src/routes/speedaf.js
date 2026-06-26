@@ -137,7 +137,7 @@ router.get('/track/:billCode', async (req, res) => {
     const orderNo = rows.length > 0 ? rows[0].order_no : null;
 
     let speedafStatus = 'pending', lastEvent = 'Order created, awaiting pickup';
-    const tracks = result.data || [];
+    const tracks = result.data?.[0]?.tracks || [];
 
     // Store tracking events locally
     if (tracks.length > 0) {
@@ -191,7 +191,7 @@ router.post('/sync', async (req, res) => {
     if (!billCode) return res.status(400).json({ message: 'billCode required' });
 
     const result = await speedaf.trackQuery(billCode);
-    const tracks = result.data || [];
+    const tracks = result.data?.[0]?.tracks || [];
     if (tracks.length === 0) return res.json({ success: false, message: 'No tracking data' });
 
     // Store tracking events

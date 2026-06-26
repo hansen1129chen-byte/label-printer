@@ -25,7 +25,7 @@ async function syncActiveShipments() {
     for (const row of rows) {
       try {
         const result = await speedaf.trackQuery(row.waybill);
-        const tracks = result.data || [];
+        const tracks = result.data?.[0]?.tracks || [];
         if (tracks.length === 0) continue;
 
         // Insert tracking events
