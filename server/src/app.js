@@ -43,17 +43,18 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/public/track', async (req, res) => {
   try {
     const pool = require('./config/db');
-    const { order_no, phone } = req.query;
-    if (!order_no || !phone) return res.status(400).json({ message: 'No orders found. Please check your details.' });
+    const { phone, tracking_no } = req.query;
+    if (!tracking_no || !phone) return res.status(400).json({ message: 'Enter phone and order/tracking number' });
     // Normalize Nigerian phone: handle both 0xxx and 234xxx formats
     let phoneDigits = phone.trim().replace(/\D/g, '');
     if (phoneDigits.startsWith('234') && phoneDigits.length >= 10) phoneDigits = phoneDigits.slice(3);
     if (phoneDigits.startsWith('0')) phoneDigits = phoneDigits.slice(1);
     const phoneLast4 = phoneDigits.slice(-4);
-    if (phoneLast4.length < 4) return res.status(400).json({ message: 'No orders found. Please check your details.' });
+    if (phoneLast4.length < 4) return res.status(400).json({ message: 'Please check your phone number' });
 
-    let where = "o.order_no LIKE ? AND RIGHT(REPLACE(o.customer_phone, '+', ''), 4) = ?";
-    const params = ['%' + order_no.trim() + '%', phoneLast4];
+    const tn = tracking_no.trim();
+    let where = "(o.order_no LIKE ? OR sr.gig_tracking = ?) AND (RIGHT(REPLACE(o.customer_phone, '+', ''), 4) = ? OR RIGHT(REPLACE(COALESCE(o.customer_phone2,''), '+', ''), 4) = ?)";
+    const params = ['%' + tn + '%', tn, phoneLast4, phoneLast4];
 
     const [rows] = await pool.query(
       `SELECT o.order_no, o.customer_name,
@@ -76,17 +77,11 @@ app.get('/api/public/track', async (req, res) => {
         );
         events = evtRows;
       } else if (row.delivery_method === 'speedaf' && row.gig_tracking) {
-        try {
-          const speedaf = require('./services/speedaf');
-          const result = await speedaf.trackQuery(row.gig_tracking);
-          const tracks = result.data || [];
-          events = tracks.map(t => ({
-            event_time: t.time || t.scanTime,
-            location: t.location || '',
-            status_code: String(t.action || t.scanStatus || ''),
-            status_description: t.actionName || t.description || t.statusDescription || '',
-          }));
-        } catch (e) { /* keep events empty */ }
+        const [evtRows] = await pool.query(
+          'SELECT event_time, location, status_code, status_description FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time ASC',
+          [row.gig_tracking]
+        );
+        events = evtRows;
       }
       results.push({ ...row, events });
     }
