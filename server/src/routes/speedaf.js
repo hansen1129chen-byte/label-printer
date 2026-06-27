@@ -200,7 +200,7 @@ router.post('/sync', async (req, res) => {
       event_time: t.time || t.scanTime || '',
       location: t.location || '',
       status_code: String(t.action || t.scanStatus || ''),
-      status_description: t.actionName || t.description || t.statusDescription || '',
+      status_description: t.msgEng || t.actionName || t.description || t.statusDescription || '',
       operator_name: t.operatorName || '',
     }));
     await insertTrackingEvents(events);
@@ -259,7 +259,7 @@ webhookRouter.post('/webhook', async (req, res) => {
   try {
     const payload = Array.isArray(req.body) ? req.body : [req.body];
     for (const item of payload) {
-      const { mailNo, action, scanStatus, time, location, description, actionName, operatorName } = item;
+      const { mailNo, action, scanStatus, time, location, description, actionName, msgEng, operatorName } = item;
       const statusCode = String(action || scanStatus || '');
       console.log('[Speedaf Webhook]', mailNo, statusCode, description || actionName);
 
@@ -270,7 +270,7 @@ webhookRouter.post('/webhook', async (req, res) => {
           event_time: time || scanStatus || '',
           location: location || '',
           status_code: statusCode,
-          status_description: actionName || description || '',
+          status_description: msgEng || actionName || description || '',
           operator_name: operatorName || '',
         }]);
 
