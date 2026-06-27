@@ -71,7 +71,7 @@ router.get('/', async (req, res) => {
     const [rows] = await pool.query(
       `SELECT sr.id, o.id AS order_id, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
         sr.delivery_staff_id, sr.status, sr.status_since, sr.initiated_at, sr.updated_at,
-        COALESCE((SELECT MAX(event_time) FROM speedaf_tracking_events WHERE waybill = sr.gig_tracking), sr.shipped_at) AS shipped_at,
+        COALESCE((SELECT MAX(event_time) FROM speedaf_tracking_events WHERE waybill = sr.gig_tracking COLLATE utf8mb4_0900_ai_ci), sr.shipped_at) AS shipped_at,
         sr.returned_at, sr.updated_by,
         ds.name AS delivery_staff_name,
         o.order_no, o.order_time, o.created_at AS order_created_at,
