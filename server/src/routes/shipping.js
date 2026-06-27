@@ -74,7 +74,7 @@ router.get('/', async (req, res) => {
         sr.shipped_at, sr.returned_at, sr.updated_by,
         ds.name AS delivery_staff_name,
         o.order_no, o.order_time, o.created_at AS order_created_at,
-        o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
+        o.customer_name, o.customer_phone, o.accept_province, o.customer_address, o.total_amount,
         o.streamer_id
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
