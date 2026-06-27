@@ -174,7 +174,7 @@ router.get('/track/:billCode', async (req, res) => {
 router.get('/events/:billCode', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT event_time, location, status_code, status_description, operator_name FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time ASC',
+      'SELECT event_time, location, status_code, status_description, operator_name FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time DESC',
       [req.params.billCode]
     );
     res.json(rows);
