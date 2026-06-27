@@ -72,13 +72,13 @@ app.get('/api/public/track', async (req, res) => {
       let events = [];
       if (row.delivery_method === 'gig' && row.gig_tracking) {
         const [evtRows] = await pool.query(
-          'SELECT event_time, location, status_code, status_description FROM gigl_tracking_events WHERE waybill = ? ORDER BY event_time ASC',
+          'SELECT event_time, location, status_code, status_description FROM gigl_tracking_events WHERE waybill = ? ORDER BY event_time DESC',
           [row.gig_tracking]
         );
         events = evtRows;
       } else if (row.delivery_method === 'speedaf' && row.gig_tracking) {
         const [evtRows] = await pool.query(
-          'SELECT event_time, location, status_code, status_description FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time ASC',
+          'SELECT event_time, location, status_code, status_description FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time DESC',
           [row.gig_tracking]
         );
         events = evtRows;

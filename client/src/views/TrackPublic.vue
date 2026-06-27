@@ -110,11 +110,11 @@
           <div v-if="currentOrder.events && currentOrder.events.length > 0" class="timeline-wrap">
             <div class="timeline-line" />
             <div v-for="(evt, i) in currentOrder.events" :key="i" class="timeline-item">
-              <div v-if="i === currentOrder.events.length - 1" class="tl-dot tl-dot-current" />
+              <div v-if="i === 0" class="tl-dot tl-dot-current" />
               <div v-else class="tl-dot tl-dot-past" />
               <div class="tl-content">
                 <p class="tl-date">{{ fmtEventDate(evt.event_time) }}</p>
-                <p :class="['tl-title', i === currentOrder.events.length - 1 ? 'tl-title-current' : 'tl-title-past']">{{ evt.status_description }}</p>
+                <p :class="['tl-title', i === 0 ? 'tl-title-current' : 'tl-title-past']">{{ evt.status_description }}</p>
                 <p v-if="evt.location" class="tl-location">{{ evt.location }}</p>
               </div>
             </div>
