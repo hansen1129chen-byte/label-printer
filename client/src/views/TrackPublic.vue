@@ -4,7 +4,7 @@
     <nav :class="['fixed top-0 left-0 right-0 z-50 h-16 flex items-center px-6 md:px-12 transition-all duration-300', scrolled ? 'bg-[#FAF8F5]/80 backdrop-blur-md' : 'bg-transparent']">
       <button v-if="showResults" @click="goBack" class="flex items-center gap-1.5 text-sm text-[#8A8A8A] hover:text-[#1A1A1A] transition-colors">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
-        返回
+        Back
       </button>
     </nav>
 
@@ -24,8 +24,8 @@
 
           <!-- Title -->
           <div class="text-center mb-8 md:mb-10 fade-in-up-2">
-            <h1 class="text-2xl md:text-3xl text-[#1A1A1A] mb-2" style="font-family: 'EB Garamond', serif">查询您的订单</h1>
-            <p class="text-sm text-[#8A8A8A]">跟踪包裹状态，掌握每一程动向</p>
+            <h1 class="text-2xl md:text-3xl text-[#1A1A1A] mb-2" style="font-family: 'EB Garamond', serif">Track Your Order</h1>
+            <p class="text-sm text-[#8A8A8A]">Real-time updates for every step of your delivery</p>
           </div>
 
           <!-- Input fields -->
@@ -34,7 +34,7 @@
             <div class="bg-white/80 backdrop-blur-sm border border-[#EBE5DA] rounded-xl px-4 py-3 shadow-sm">
               <div class="flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#BFBFBF] shrink-0"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-                <input v-model="phone" type="tel" placeholder="请输入收货人手机号" maxlength="11" :disabled="loading" class="flex-1 text-sm text-[#1A1A1A] placeholder-[#BFBFBF] bg-transparent outline-none disabled:opacity-50 min-w-0" @keydown.enter="search" />
+                <input v-model="phone" type="tel" placeholder="Enter recipient phone number" maxlength="11" :disabled="loading" class="flex-1 text-sm text-[#1A1A1A] placeholder-[#BFBFBF] bg-transparent outline-none disabled:opacity-50 min-w-0" @keydown.enter="search" />
               </div>
             </div>
 
@@ -42,7 +42,7 @@
             <div class="bg-white/80 backdrop-blur-sm border border-[#EBE5DA] rounded-xl px-4 py-3 shadow-sm">
               <div class="flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#BFBFBF] shrink-0"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-                <input v-model="trackingNo" type="text" placeholder="请输入您的订单号或者物流单号" :disabled="loading" class="flex-1 text-sm text-[#1A1A1A] placeholder-[#BFBFBF] bg-transparent outline-none disabled:opacity-50 min-w-0" @keydown.enter="search" />
+                <input v-model="trackingNo" type="text" placeholder="Enter order number or waybill number" :disabled="loading" class="flex-1 text-sm text-[#1A1A1A] placeholder-[#BFBFBF] bg-transparent outline-none disabled:opacity-50 min-w-0" @keydown.enter="search" />
               </div>
             </div>
 
@@ -56,7 +56,7 @@
               <span v-if="loading" class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               <template v-else>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                查询
+                Track
               </template>
             </button>
           </div>
@@ -100,9 +100,9 @@
 
             <!-- Order Info -->
             <div class="text-sm text-[#8A8A8A] space-y-1">
-              <p>订单号：{{ currentOrder.order_no }}</p>
-              <p>收件人：{{ currentOrder.customer_name }} · {{ currentOrder.masked_phone }}</p>
-              <p v-if="currentOrder.delivery_method">物流：{{ currentOrder.delivery_method.toUpperCase() }}</p>
+              <p>Order: {{ currentOrder.order_no }}</p>
+              <p>Customer: {{ currentOrder.customer_name }} · {{ currentOrder.masked_phone }}</p>
+              <p v-if="currentOrder.delivery_method">Method: {{ currentOrder.delivery_method.toUpperCase() }}</p>
             </div>
           </div>
 
@@ -122,7 +122,7 @@
             </div>
           </div>
           <div v-else class="mt-8 text-center text-sm text-[#BFBFBF] fade-in-up-2">
-            <p>暂无物流轨迹</p>
+            <p>No tracking events yet</p>
           </div>
         </div>
       </main>
@@ -149,10 +149,10 @@ const copied = ref(false)
 const scrolled = ref(false)
 
 const progressSteps = [
-  { label: '已揽件', icon: 'package' },
-  { label: '运输中', icon: 'truck' },
-  { label: '派送中', icon: 'mappin' },
-  { label: '已签收', icon: 'home' },
+  { label: 'Picked Up', icon: 'package' },
+  { label: 'In Transit', icon: 'truck' },
+  { label: 'Out for Delivery', icon: 'mappin' },
+  { label: 'Delivered', icon: 'home' },
 ]
 
 function progressStepFor(status, events) {
@@ -167,7 +167,7 @@ function progressStepFor(status, events) {
 const progressStep = ref(0)
 
 function statusLabel(s) {
-  return { pending:'待揽件', in_transit:'运输中', delivered:'已签收', returned:'已退回', cancelled:'已取消', returning:'退件中', unassigned:'处理中', voided:'已作废', failed:'失败' }[s] || s || '处理中'
+  return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned', cancelled:'Cancelled', returning:'Returning', unassigned:'Processing', voided:'Voided', failed:'Failed' }[s] || s || 'Processing'
 }
 
 function fmtEventDate(d) {
@@ -180,13 +180,13 @@ function fmtEventDate(d) {
 async function search() {
   const p = phone.value.trim()
   const t = trackingNo.value.trim()
-  if (!p) { error.value = '请输入手机号'; return }
-  if (!t) { error.value = '请输入订单号或运单号'; return }
-  if (p.length < 4) { error.value = '请输入正确的手机号码'; return }
+  if (!p) { error.value = 'Enter your phone number'; return }
+  if (!t) { error.value = 'Enter order or waybill number'; return }
+  if (p.length < 4) { error.value = 'Enter a valid phone number'; return }
   loading.value = true; error.value = ''
   try {
     const { data } = await api.get('/public/track', { params: { phone: p, tracking_no: t } })
-    if (!data.results || data.results.length === 0) { error.value = '没有找到相关订单，请检查信息是否正确'; return }
+    if (!data.results || data.results.length === 0) { error.value = 'No orders found. Please check your details.'; return }
     // If track by gig_tracking, find matching order
     let target = data.results[0]
     for (const r of data.results) {
@@ -196,7 +196,7 @@ async function search() {
     currentOrder.value = target
     progressStep.value = progressStepFor(target.shipping_status, target.events)
     showResults.value = true
-  } catch (err) { error.value = err.response?.data?.message || '查询失败，请稍后重试' }
+  } catch (err) { error.value = err.response?.data?.message || 'Search failed, please try again' }
   finally { loading.value = false }
 }
 
